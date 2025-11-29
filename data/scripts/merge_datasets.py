@@ -128,7 +128,7 @@ def create_training_format(df: pd.DataFrame) -> pd.DataFrame:
     Create final training dataset format matching original structure.
     
     Args:
-        df (pd.DataFrame): Merged disease-symptom dataset
+        df (pd.DataFrame): Disease-symptom dataset (with individual records)
     
     Returns:
         pd.DataFrame: Training-ready dataset
@@ -138,20 +138,33 @@ def create_training_format(df: pd.DataFrame) -> pd.DataFrame:
     training_records = []
     
     for _, row in df.iterrows():
-        disease = row['disease']
-        symptoms = row['symptoms']
+        disease = row.get('disease') or row.get('diseases')
+        symptoms = row.get('symptoms', [])
+        
+        if pd.isna(disease) or not symptoms:
+            continue
+        
+        # Ensure symptoms is a list
+        if isinstance(symptoms, str):
+            try:
+                symptoms = json.loads(symptoms)
+            except:
+                symptoms = [s.strip() for s in str(symptoms).split(',') if s.strip()]
+        
+        if not isinstance(symptoms, list) or len(symptoms) == 0:
+            continue
         
         # Convert symptoms list to JSON string (matching original format)
         symptoms_json = json.dumps(symptoms)
         
         # Create symptom text (for compatibility)
-        symptoms_text = ', '.join(symptoms)
+        symptoms_text = ', '.join(symptoms) if isinstance(symptoms, list) else str(symptoms)
         
         training_records.append({
-            'diseases': disease,
+            'diseases': str(disease).strip(),
             'symptoms_list': symptoms_json,
             'symptoms_text': symptoms_text,
-            'symptom_count': len(symptoms)
+            'symptom_count': len(symptoms) if isinstance(symptoms, list) else 1
         })
     
     training_df = pd.DataFrame(training_records)
@@ -307,11 +320,14 @@ def merge_all_datasets():
     combined = pd.concat(all_datasets, ignore_index=True)
     print(f"✓ Combined {len(combined)} total records")
     
-    # Merge by disease
-    merged = merge_disease_symptoms(combined)
+    # IMPORTANT: Don't merge by disease - keep all individual records!
+    # Merging by disease reduces training samples (bad for ML)
+    # Instead, just create training format with all records
+    print("\n⚠️  Keeping all individual records (not merging by disease)")
+    print("This preserves multiple training samples per disease for better ML training")
     
-    # Create training format
-    final_dataset = create_training_format(merged)
+    # Create training format directly from combined dataset (without merging)
+    final_dataset = create_training_format(combined)
     
     # Validate
     stats = validate_merged_dataset(final_dataset)

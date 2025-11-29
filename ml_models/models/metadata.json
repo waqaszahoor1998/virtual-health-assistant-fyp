@@ -1,7 +1,7 @@
 {
   "num_features": 5000,
-  "num_diseases": 1508,
-  "train_samples": 753,
-  "val_samples": 162,
-  "test_samples": 162
+  "num_diseases": 1140,
+  "train_samples": 794,
+  "val_samples": 171,
+  "test_samples": 171
 }

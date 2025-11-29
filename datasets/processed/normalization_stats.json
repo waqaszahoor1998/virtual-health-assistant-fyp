@@ -1,0 +1,10 @@
+{
+  "total_records": 2175,
+  "unique_diseases": 725,
+  "datasets_combined": 3,
+  "records_per_source": {
+    "symptom2disease": 1153,
+    "dataset_2_final": 725,
+    "disease_prediction_ml": 297
+  }
+}
