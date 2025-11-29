@@ -5,7 +5,7 @@ Flask-based REST API backend for the Virtual Health Assistant application.
 ## 📋 Overview
 
 This backend provides RESTful APIs for:
-- User authentication and authorization (Firebase integration)
+- User authentication and authorization (JWT-based)
 - Patient and doctor management
 - AI-powered disease diagnosis from symptoms
 - Drug suggestions from DrugBank database
@@ -17,7 +17,8 @@ This backend provides RESTful APIs for:
 
 - **Framework**: Flask 3.0.0
 - **Database**: PostgreSQL with SQLAlchemy ORM
-- **Authentication**: Firebase Admin SDK + JWT
+- **Authentication**: JWT (Flask-JWT-Extended)
+- **Password Hashing**: Werkzeug
 - **ML Integration**: XGBoost, Random Forest, scikit-learn
 - **API Documentation**: Flask-Swagger-UI
 
@@ -58,9 +59,10 @@ backend/
 
 - Python 3.8 or higher
 - PostgreSQL 12 or higher
-- Firebase project (for authentication)
 
 ### 2. Install Dependencies
+
+#### macOS/Linux:
 
 ```bash
 # Navigate to backend directory
@@ -70,16 +72,49 @@ cd backend
 python3 -m venv venv
 
 # Activate virtual environment
-# On macOS/Linux:
 source venv/bin/activate
-# On Windows:
-# venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+#### Windows (Command Prompt):
+
+```cmd
+REM Navigate to backend directory
+cd backend
+
+REM Create virtual environment
+python -m venv venv
+
+REM Activate virtual environment
+venv\Scripts\activate.bat
+
+REM Install dependencies
+pip install -r requirements.txt
+```
+
+#### Windows (PowerShell):
+
+```powershell
+# Navigate to backend directory
+cd backend
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+.\venv\Scripts\Activate.ps1
+# If you get execution policy error, run:
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
 ### 3. Environment Configuration
+
+#### macOS/Linux:
 
 ```bash
 # Copy environment template
@@ -90,10 +125,43 @@ cp .env.example .env
 # - DATABASE_URL (PostgreSQL connection string)
 # - SECRET_KEY (for Flask sessions)
 # - JWT_SECRET_KEY (for JWT tokens)
-# - FIREBASE_CREDENTIALS (path to Firebase service account JSON)
 ```
 
+#### Windows (Command Prompt):
+
+```cmd
+REM Copy environment template
+copy .env.example .env
+
+REM Edit .env file with your configuration
+REM Required settings:
+REM - DATABASE_URL (PostgreSQL connection string)
+REM - SECRET_KEY (for Flask sessions)
+REM - JWT_SECRET_KEY (for JWT tokens)
+```
+
+#### Windows (PowerShell):
+
+```powershell
+# Copy environment template
+Copy-Item .env.example .env
+
+# Edit .env file with your configuration
+# Required settings:
+# - DATABASE_URL (PostgreSQL connection string)
+# - SECRET_KEY (for Flask sessions)
+# - JWT_SECRET_KEY (for JWT tokens)
+```
+
+**Required Environment Variables:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `SECRET_KEY` - Flask session secret key
+- `JWT_SECRET_KEY` - JWT token signing key
+- `CORS_ORIGINS` - Allowed frontend origins (default: http://localhost:3000)
+
 ### 4. Database Setup
+
+#### macOS/Linux:
 
 ```bash
 # Make sure PostgreSQL is running and create database
@@ -109,7 +177,33 @@ flask db migrate -m "Initial migration"
 flask db upgrade
 ```
 
+#### Windows:
+
+```cmd
+REM Open Command Prompt and create database
+psql -U postgres
+CREATE DATABASE virtual_health_assistant;
+\q
+
+REM Or using command line:
+psql -U postgres -c "CREATE DATABASE virtual_health_assistant;"
+
+REM Initialize database migrations (from backend directory)
+cd backend
+venv\Scripts\activate.bat
+flask db init
+flask db migrate -m "Initial migration"
+flask db upgrade
+```
+
+**Windows PostgreSQL Connection:**
+- Default username: `postgres`
+- Default port: `5432`
+- Format: `postgresql://postgres:your_password@localhost:5432/virtual_health_assistant`
+
 ### 5. Run Development Server
+
+#### macOS/Linux:
 
 ```bash
 # Run the Flask development server
@@ -121,12 +215,26 @@ flask run
 # Server will start on http://localhost:5000
 ```
 
+#### Windows:
+
+```cmd
+REM Run the Flask development server
+python run.py
+
+REM Or use Flask CLI
+flask run
+
+REM Server will start on http://localhost:5000
+```
+
 ## 📡 API Endpoints
 
 ### Authentication
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - User login
-- `POST /api/auth/verify` - Verify token
+- `POST /api/auth/refresh` - Refresh access token
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/verify` - Verify token
 - `GET /api/auth/user` - Get current user
 
 ### Patients
@@ -164,12 +272,25 @@ Configuration is managed through environment variables and the `config.py` file:
 - **Testing**: Uses `TestingConfig` (in-memory database)
 
 Set `FLASK_ENV` environment variable to switch configurations:
+
+#### macOS/Linux:
 ```bash
 export FLASK_ENV=production
 ```
 
+#### Windows (Command Prompt):
+```cmd
+set FLASK_ENV=production
+```
+
+#### Windows (PowerShell):
+```powershell
+$env:FLASK_ENV="production"
+```
+
 ## 🧪 Testing
 
+#### macOS/Linux/Windows:
 ```bash
 # Run tests
 pytest
@@ -181,7 +302,8 @@ pytest --cov=app tests/
 ## 📝 Database Models
 
 ### User
-- Stores authentication information (Firebase UID, email, role)
+- Stores authentication information (email, password hash, role)
+- Password hashing using Werkzeug
 - Links to Patient or Doctor profiles
 
 ### Patient
@@ -213,14 +335,15 @@ pytest --cov=app tests/
 ### Symptom
 - Symptom catalog for ML training
 
-## 🔐 Authentication Flow
+## 🔐 Authentication Flow (JWT-based)
 
-1. Frontend authenticates user with Firebase
-2. Frontend sends Firebase ID token to backend
-3. Backend verifies token with Firebase Admin SDK
-4. Backend creates/retrieves User record
-5. Backend returns JWT token for subsequent requests
-6. Frontend includes JWT token in Authorization header
+1. User registers/logs in with email and password
+2. Backend validates credentials and hashes password
+3. Backend creates JWT access token and refresh token
+4. Tokens are returned to frontend
+5. Frontend stores tokens and includes access token in Authorization header
+6. Backend verifies JWT token on each request
+7. When access token expires, frontend uses refresh token to get new access token
 
 ## 🤖 ML Model Integration
 
@@ -238,7 +361,7 @@ Key dependencies:
 - `flask` - Web framework
 - `flask-sqlalchemy` - ORM for database
 - `flask-jwt-extended` - JWT authentication
-- `firebase-admin` - Firebase Admin SDK
+- `werkzeug` - Password hashing utilities
 - `psycopg2-binary` - PostgreSQL driver
 - `pandas` - Data processing
 - `scikit-learn` - Machine learning
@@ -253,10 +376,13 @@ See `requirements.txt` for complete list.
 - **Enable HTTPS** in production
 - **Implement rate limiting** for API endpoints
 - **Validate all inputs** to prevent SQL injection and XSS
+- **Use strong JWT secret keys** in production
 
 ## 🐛 Troubleshooting
 
 ### Database Connection Issues
+
+#### macOS/Linux:
 ```bash
 # Check PostgreSQL is running
 pg_isready
@@ -265,22 +391,80 @@ pg_isready
 # Format: postgresql://username:password@host:port/database
 ```
 
-### Firebase Authentication Issues
-- Ensure `FIREBASE_CREDENTIALS` path is correct in `.env`
-- Verify Firebase service account JSON file exists
-- Check Firebase project permissions
+#### Windows:
+```cmd
+REM Check PostgreSQL is running
+psql --version
+
+REM Test connection
+psql -U postgres -c "SELECT version();"
+
+REM Verify DATABASE_URL in .env file
+REM Format: postgresql://username:password@host:port/database
+```
+
+**Common Windows Issues:**
+- PostgreSQL service not running: Start from Services (`services.msc`)
+- Port 5432 blocked: Check Windows Firewall
+- Connection refused: Verify PostgreSQL is running on port 5432
 
 ### Import Errors
-- Ensure virtual environment is activated
-- Install dependencies: `pip install -r requirements.txt`
-- Check Python path includes backend directory
+
+#### macOS/Linux/Windows:
+```bash
+# Ensure virtual environment is activated
+# macOS/Linux:
+source venv/bin/activate
+
+# Windows Command Prompt:
+venv\Scripts\activate.bat
+
+# Windows PowerShell:
+.\venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Check Python path includes backend directory
+python -c "import sys; print(sys.path)"
+```
+
+### Port Already in Use
+
+#### macOS/Linux:
+```bash
+# Find process using port 5000
+lsof -i :5000
+
+# Kill process
+kill -9 <PID>
+```
+
+#### Windows:
+```cmd
+REM Find process using port 5000
+netstat -ano | findstr :5000
+
+REM Kill process (replace PID)
+taskkill /PID <PID> /F
+```
+
+### PowerShell Execution Policy (Windows)
+
+If you see "execution of scripts is disabled on this system":
+
+```powershell
+# Run as Administrator
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
 
 ## 📚 Additional Resources
 
 - [Flask Documentation](https://flask.palletsprojects.com/)
 - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-- [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
+- [Flask-JWT-Extended Documentation](https://flask-jwt-extended.readthedocs.io/)
 - [XGBoost Documentation](https://xgboost.readthedocs.io/)
+- [JWT Authentication Guide](../JWT_AUTHENTICATION.md)
 
 ## 🔄 Development Workflow
 
@@ -293,5 +477,7 @@ pg_isready
 
 ## 📞 Support
 
-For issues or questions, refer to the main project README or contact the development team.
-
+For issues or questions, refer to:
+- Main project README: `../README.md`
+- JWT Authentication guide: `../JWT_AUTHENTICATION.md`
+- Quick Start guide: `../QUICK_START.md`
