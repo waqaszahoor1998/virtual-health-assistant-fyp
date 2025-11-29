@@ -7,7 +7,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { Form, InputGroup, Button, ListGroup, Badge, Alert } from 'react-bootstrap'
-import { X, Search, Plus } from 'react-bootstrap-icons'
+// Icons using Unicode symbols (no external dependency needed)
+// Alternative: Install react-bootstrap-icons or use Font Awesome
 
 /**
  * SymptomSelector Component
@@ -127,7 +128,7 @@ function SymptomSelector({
                                         minWidth: 'auto'
                                     }}
                                 >
-                                    <X size={16} />
+                                    ✕
                                 </Button>
                             </Badge>
                         ))}
@@ -156,7 +157,7 @@ function SymptomSelector({
                             selectedSymptoms.includes(customSymptom.trim().toLowerCase())
                         }
                     >
-                        <Plus size={16} className="me-1" />
+                        +
                         Add
                     </Button>
                 </InputGroup>
@@ -168,7 +169,7 @@ function SymptomSelector({
                     <label className="form-label">Search Available Symptoms</label>
                     <InputGroup className="mb-2">
                         <InputGroup.Text>
-                            <Search size={16} />
+                            🔍
                         </InputGroup.Text>
                         <Form.Control
                             type="text"
@@ -197,7 +198,7 @@ function SymptomSelector({
                                             handleAddSymptom(symptom)
                                         }}
                                     >
-                                        <Plus size={14} />
+                                        +
                                     </Button>
                                 </ListGroup.Item>
                             ))}
