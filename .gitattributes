@@ -1,0 +1,26 @@
+# Git Large File Storage (LFS) configuration
+# This file tells Git which files should be stored using Git LFS
+# ML Model files (can be very large)
+*.pkl filter=lfs diff=lfs merge=lfs -text
+*.joblib filter=lfs diff=lfs merge=lfs -text
+*.h5 filter=lfs diff=lfs merge=lfs -text
+*.hdf5 filter=lfs diff=lfs merge=lfs -text
+# Large data files
+*.csv filter=lfs diff=lfs merge=lfs -text
+*.xlsx filter=lfs diff=lfs merge=lfs -text
+*.xls filter=lfs diff=lfs merge=lfs -text
+*.parquet filter=lfs diff=lfs merge=lfs -text
+# Large document files
+*.docx filter=lfs diff=lfs merge=lfs -text
+*.pdf filter=lfs diff=lfs merge=lfs -text
+# Keep text files as normal Git files
+*.txt text
+*.json text
+*.md text
+*.py text
+*.js text
+*.jsx text
+*.html text
+*.css text
+*.yml text
+*.yaml text
