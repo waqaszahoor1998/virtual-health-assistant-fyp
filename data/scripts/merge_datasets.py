@@ -342,10 +342,25 @@ def merge_all_datasets():
     final_dataset.to_csv(csv_file, index=False)
     print(f"✓ Saved to: {csv_file}")
     
-    # Save statistics
+    # Save statistics (convert numpy types to native Python types for JSON)
     stats_file = DATA_PROCESSED_DIR / 'expanded_dataset_stats.json'
+    
+    # Convert numpy types to native Python types
+    stats_json_safe = {}
+    for key, value in stats.items():
+        if isinstance(value, (np.integer, np.int64, np.int32)):
+            stats_json_safe[key] = int(value)
+        elif isinstance(value, (np.floating, np.float64, np.float32)):
+            stats_json_safe[key] = float(value)
+        elif isinstance(value, dict):
+            stats_json_safe[key] = {k: (int(v) if isinstance(v, (np.integer, np.int64, np.int32)) 
+                                       else float(v) if isinstance(v, (np.floating, np.float64, np.float32)) 
+                                       else v) for k, v in value.items()}
+        else:
+            stats_json_safe[key] = value
+    
     with open(stats_file, 'w') as f:
-        json.dump(stats, f, indent=2)
+        json.dump(stats_json_safe, f, indent=2)
     print(f"✓ Saved statistics to: {stats_file}")
     
     return final_dataset

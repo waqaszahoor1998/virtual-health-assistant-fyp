@@ -1,7 +1,13 @@
 {
-  "total_records": 1140,
+  "total_records": 3254,
   "unique_diseases": 1140,
-  "total_symptoms": 22282,
   "unique_symptoms": 13464,
-  "avg_symptoms_per_record": 19.54561403508772,
-  "min_symptoms": 
+  "records_with_symptoms": 3254,
+  "avg_symptoms_per_record": 9.2,
+  "min_symptoms": 1,
+  "max_symptoms": 60,
+  "records_per_source": {
+    "normalized": 2175,
+    "existing": 2318
+  }
+}
