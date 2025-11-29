@@ -14,6 +14,7 @@ import { Container, Row, Col, Card, Tab, Tabs, Button, Alert, Badge, Spinner } f
 import { toast } from 'react-toastify'
 import { useAuth } from '../context/AuthContext'
 import { patientAPI, diagnosisAPI, prescriptionAPI, appointmentAPI } from '../services/api'
+import AppointmentBookingModal from '../components/AppointmentBookingModal'
 
 /**
  * Main Patient Dashboard component.
@@ -34,6 +35,7 @@ function PatientDashboard() {
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(false)
   const [appointments, setAppointments] = useState([])
   const [loadingAppointments, setLoadingAppointments] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
   
   /**
    * Load patient profile on component mount.
@@ -343,7 +345,7 @@ function PatientDashboard() {
               <Card>
                 <Card.Header className="d-flex justify-content-between align-items-center">
                   <Card.Title className="mb-0">My Appointments</Card.Title>
-                  <Button variant="primary" size="sm">
+                  <Button variant="primary" size="sm" onClick={() => setShowBookingModal(true)}>
                     + Request Appointment
                   </Button>
                 </Card.Header>
@@ -452,6 +454,17 @@ function PatientDashboard() {
           </Row>
         </Tab>
       </Tabs>
+      
+      {/* Appointment Booking Modal */}
+      <AppointmentBookingModal
+        show={showBookingModal}
+        onHide={() => setShowBookingModal(false)}
+        onSuccess={(appointment) => {
+          // Reload appointments after successful booking
+          loadAppointments()
+          setShowBookingModal(false)
+        }}
+      />
     </Container>
   )
 }

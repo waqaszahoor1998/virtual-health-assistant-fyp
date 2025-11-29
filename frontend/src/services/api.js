@@ -171,7 +171,7 @@ export const patientAPI = {
 
 // Doctor endpoints
 export const doctorAPI = {
-  getAll: () => api.get('/doctors'),
+  getAll: (params) => api.get('/doctors', { params }),
   getById: (id) => api.get(`/doctors/${id}`),
 }
 
