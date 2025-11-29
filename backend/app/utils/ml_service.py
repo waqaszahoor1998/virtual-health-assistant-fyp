@@ -140,7 +140,14 @@ class MLPredictionService:
         feature_vector = self.preprocess_symptoms(symptoms)
         
         # Make prediction
-        probabilities = model.predict_proba(feature_vector)[0]
+        # For MultiOutputClassifier, predict_proba returns a list of arrays
+        # Each array contains [prob_class_0, prob_class_1] for that label
+        proba_list = model.predict_proba(feature_vector)
+        
+        # Extract probabilities for positive class (class 1) for each disease
+        # Convert list of arrays to a single array of probabilities
+        probabilities = np.array([proba[0][1] if proba[0].shape[0] > 1 else proba[0][0] 
+                                  for proba in proba_list])
         
         # Get disease names
         if not self.disease_names:

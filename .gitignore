@@ -83,8 +83,11 @@ desktop.ini
 instance/
 .webassets-cache
 
-# ML Models (large files - uncomment if models are too large)
-# ml_models/models/*.pkl
-# ml_models/models/*.joblib
-# ml_models/models/*.h5
+# ML Models (large files - generated locally, not committed)
+ml_models/models/*.pkl
+ml_models/models/*.joblib
+ml_models/models/*.h5
+# Keep metadata and small files
+!ml_models/models/*.txt
+!ml_models/models/*.json
 

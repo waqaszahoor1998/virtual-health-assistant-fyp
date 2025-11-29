@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import numpy as np
 from xgboost import XGBClassifier
+from sklearn.multioutput import MultiOutputClassifier
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     classification_report, multilabel_confusion_matrix
@@ -50,6 +51,9 @@ def train_xgboost_model(X_train, y_train, X_val, y_val):
     """
     Train XGBoost model for multi-label classification.
     
+    For multi-label classification, we use OneVsRestClassifier wrapper
+    which trains one binary classifier per disease.
+    
     Args:
         X_train: Training features
         y_train: Training labels
@@ -57,16 +61,18 @@ def train_xgboost_model(X_train, y_train, X_val, y_val):
         y_val: Validation labels
     
     Returns:
-        XGBClassifier: Trained model
+        OneVsRestClassifier: Trained model
     """
     print("\n" + "=" * 60)
     print("TRAINING XGBOOST MODEL")
     print("=" * 60)
     
-    # XGBoost parameters for multi-label classification
-    model = XGBClassifier(
-        objective='multi:softprob',  # Multi-class classification
-        n_estimators=200,  # Number of boosting rounds
+    from sklearn.multioutput import MultiOutputClassifier
+    
+    # XGBoost parameters for binary classification (used per label)
+    base_xgb = XGBClassifier(
+        objective='binary:logistic',  # Binary classification for each disease
+        n_estimators=100,  # Number of boosting rounds (reduced for faster training)
         max_depth=6,  # Maximum tree depth
         learning_rate=0.1,  # Learning rate
         subsample=0.8,  # Subsample ratio
@@ -75,27 +81,33 @@ def train_xgboost_model(X_train, y_train, X_val, y_val):
         gamma=0.1,  # Minimum loss reduction
         reg_alpha=0.1,  # L1 regularization
         reg_lambda=1.0,  # L2 regularization
+        base_score=0.5,  # Initial prediction score (required for binary:logistic)
         random_state=42,
         n_jobs=-1,  # Use all available CPUs
-        eval_metric='mlogloss',  # Evaluation metric
+        eval_metric='logloss',  # Evaluation metric for binary
         tree_method='hist'  # Tree construction algorithm
     )
     
+    # Wrap with MultiOutputClassifier for multi-label classification
+    # This trains one binary classifier per disease
+    model = MultiOutputClassifier(base_xgb, n_jobs=-1)
+    
     print("\nModel parameters:")
-    print(f"  - n_estimators: {model.n_estimators}")
-    print(f"  - max_depth: {model.max_depth}")
-    print(f"  - learning_rate: {model.learning_rate}")
-    print(f"  - objective: {model.objective}")
+    print(f"  - Base classifier: XGBoost")
+    print(f"  - n_estimators: {base_xgb.n_estimators}")
+    print(f"  - max_depth: {base_xgb.max_depth}")
+    print(f"  - learning_rate: {base_xgb.learning_rate}")
+    print(f"  - Multi-label strategy: One binary classifier per disease")
+    print(f"  - Number of diseases: {y_train.shape[1]}")
     
     print("\nTraining model...")
+    print(f"This will train one binary classifier for each of {y_train.shape[1]} diseases...")
+    print("(This may take 10-30 minutes depending on your system)")
     start_time = time.time()
     
-    # Train model with early stopping on validation set
-    model.fit(
-        X_train, y_train,
-        eval_set=[(X_val, y_val)],
-        verbose=True
-    )
+    # Train model (MultiOutputClassifier handles multi-label automatically)
+    # It trains one binary XGBoost classifier per disease
+    model.fit(X_train, y_train)
     
     training_time = time.time() - start_time
     print(f"\n✓ Training completed in {training_time:.2f} seconds")
@@ -108,7 +120,7 @@ def evaluate_model(model, X_test, y_test, disease_names):
     Evaluate model performance on test set.
     
     Args:
-        model: Trained model
+        model: Trained model (MultiOutputClassifier)
         X_test: Test features
         y_test: Test labels
         disease_names: List of disease names
@@ -123,7 +135,16 @@ def evaluate_model(model, X_test, y_test, disease_names):
     # Make predictions
     print("Making predictions on test set...")
     y_pred = model.predict(X_test)
-    y_pred_proba = model.predict_proba(X_test)
+    
+    # Get prediction probabilities (for MultiOutputClassifier, this returns list of arrays)
+    # Each array contains probabilities for that label
+    print("Getting prediction probabilities...")
+    y_pred_proba_list = model.predict_proba(X_test)
+    
+    # Convert list of arrays to a single 2D array (n_samples, n_labels)
+    # Each element is the probability of that disease for that sample
+    y_pred_proba = np.array([proba[:, 1] if proba.shape[1] > 1 else proba[:, 0] 
+                            for proba in y_pred_proba_list]).T
     
     # Calculate metrics
     # For multi-label classification, we use subset accuracy
@@ -187,16 +208,20 @@ def save_model(model, metrics, model_name='xgboost_model'):
     print(f"✓ Saved metrics: {metrics_file}")
     
     # Save model info
+    # Get base estimator for parameters
+    base_estimator = model.estimators_[0] if hasattr(model, 'estimators_') else model
+    
     model_info = {
         'model_name': 'XGBoost',
-        'model_type': 'Multi-label Classifier',
-        'features': model.n_features_in_,
-        'classes': model.n_classes_ if hasattr(model, 'n_classes_') else 'Multiple',
+        'model_type': 'Multi-label Classifier (MultiOutputClassifier)',
+        'features': base_estimator.n_features_in_ if hasattr(base_estimator, 'n_features_in_') else 'Unknown',
+        'n_labels': len(model.estimators_) if hasattr(model, 'estimators_') else 'Unknown',
         'metrics': metrics,
         'parameters': {
-            'n_estimators': model.n_estimators,
-            'max_depth': model.max_depth,
-            'learning_rate': model.learning_rate
+            'n_estimators': base_estimator.n_estimators if hasattr(base_estimator, 'n_estimators') else 'Unknown',
+            'max_depth': base_estimator.max_depth if hasattr(base_estimator, 'max_depth') else 'Unknown',
+            'learning_rate': base_estimator.learning_rate if hasattr(base_estimator, 'learning_rate') else 'Unknown',
+            'objective': base_estimator.objective if hasattr(base_estimator, 'objective') else 'Unknown'
         }
     }
     
