@@ -43,14 +43,25 @@ function PatientDashboard() {
   }, [user])
   
   /**
+   * Load overview data when patient profile is loaded.
+   */
+  useEffect(() => {
+    if (patient) {
+      // Load data for overview
+      loadPrescriptions()
+      loadAppointments()
+    }
+  }, [patient])
+  
+  /**
    * Load relevant data when tabs change.
    */
   useEffect(() => {
     if (activeTab === 'diagnoses' && patient) {
       loadDiagnoses()
-    } else if (activeTab === 'prescriptions' && patient) {
+    } else if (activeTab === 'prescriptions' && patient && prescriptions.length === 0) {
       loadPrescriptions()
-    } else if (activeTab === 'appointments' && patient) {
+    } else if (activeTab === 'appointments' && patient && appointments.length === 0) {
       loadAppointments()
     }
   }, [activeTab, patient])
