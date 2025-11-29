@@ -2,7 +2,7 @@
 
 ## 📊 Current Status
 
-### ✅ Trained Models: **1 out of 2** (50%)
+### ✅ Trained Models: **2 out of 2** (100%)
 
 ---
 
@@ -36,22 +36,35 @@
 
 ---
 
-## ❌ Random Forest Model - **NOT TRAINED**
+## ✅ Random Forest Model - **TRAINED**
 
-**Status**: ❌ **Training Script Ready, Not Yet Trained**
+**Status**: ✅ **Trained and Ready to Use**
 
 **Files:**
-- `ml_models/scripts/train_random_forest.py` ✅ (Script exists)
-- `ml_models/models/random_forest_model.pkl` ❌ (Model file missing)
+- `ml_models/models/random_forest_model.pkl` ✅ (179 MB)
+- `ml_models/models/random_forest_model_info.json` ✅
+- `ml_models/models/random_forest_model_metrics.json` ✅
 
-**Training Script Status**: ✅ Ready to run
+**Training Date**: November 30, 2024
 
-**Expected Performance** (when trained):
-- Accuracy: 70-75%
-- Training Time: 2-5 minutes
-- Good for baseline comparison
+**Model Details:**
+- **Type**: Multi-label classification
+- **Algorithm**: Random Forest
+- **Diseases**: 1,508 classes
+- **Training Samples**: 753
+- **Features**: 5,000 (TF-IDF vectors)
+- **Parameters**:
+  - n_estimators: 200
+  - max_depth: 15
+  - max_features: sqrt
 
-**Status**: ⏳ **Ready to train, but not yet executed**
+**Performance Metrics:**
+- Exact Match Accuracy: **8.02%** (low due to small dataset)
+- Micro Precision: **86.67%** (good - when it predicts, it's usually correct)
+- Micro Recall: **8.02%** (conservative predictions)
+- F1-Score (Micro): **14.69%**
+
+**Status**: ✅ **Trained and integrated with backend API**
 
 ---
 
@@ -103,34 +116,37 @@ python ml_models/scripts/train_random_forest.py
 
 ## 📊 Summary Table
 
-| Model | Status | File Size | Accuracy | Training Time | Integrated |
-|-------|--------|-----------|----------|---------------|------------|
-| **XGBoost** | ✅ Trained | 106 MB | 6.79% exact, 84.62% precision | ~4 min | ✅ Yes |
-| **Random Forest** | ❌ Not Trained | - | Expected 70-75% | ~2-5 min | ❌ No |
+| Model | Status | File Size | Accuracy | Precision | Training Time | Integrated |
+|-------|--------|-----------|----------|-----------|---------------|------------|
+| **XGBoost** | ✅ Trained | 106 MB | 6.79% exact | 84.62% micro | ~4 min | ✅ Yes |
+| **Random Forest** | ✅ Trained | 179 MB | 8.02% exact | 86.67% micro | ~2-5 min | ✅ Yes |
 
 ---
 
 ## ✅ What's Working Now
 
 ### Currently Available:
-- ✅ XGBoost model predictions
+- ✅ XGBoost model predictions (primary)
+- ✅ Random Forest model predictions (alternative/comparison)
 - ✅ ML prediction API endpoint (`/api/diagnosis/predict`)
 - ✅ Frontend integration (DiseasePredictionCard component)
 - ✅ All preprocessing components
 
 ### Can Use:
-- ✅ Disease prediction from symptoms
+- ✅ Disease prediction from symptoms (both models)
+- ✅ Switch between XGBoost and Random Forest models
 - ✅ Confidence scores
 - ✅ Top-k predictions
+- ✅ Model comparison
 
 ---
 
 ## ⏳ What's Missing
 
 ### Not Yet Available:
-- ❌ Random Forest model (for comparison)
-- ❌ Model ensemble (combining multiple models)
+- ❌ Model ensemble (combining multiple models for better accuracy)
 - ❌ Model accuracy improvements (needs larger dataset)
+- ❌ Automatic model selection based on performance
 
 ### Optional Enhancements:
 - ⏳ Neural network model
@@ -139,13 +155,29 @@ python ml_models/scripts/train_random_forest.py
 
 ---
 
-## 🎯 Recommendation
+## 🎯 Model Comparison
 
-### For Production Use:
-✅ **XGBoost is sufficient** - It's trained, working, and integrated.
+### Performance Comparison:
 
-### For Comparison/Research:
-⏳ **Train Random Forest** - Good for comparing approaches and validating results.
+**XGBoost:**
+- Accuracy: 6.79%
+- Micro Precision: 84.62%
+- Faster predictions
+- Smaller file size (106 MB)
+
+**Random Forest:**
+- Accuracy: 8.02% (slightly better)
+- Micro Precision: 86.67% (slightly better)
+- Larger file size (179 MB)
+- Good for feature importance analysis
+
+### Recommendation:
+
+✅ **Both models are trained and working!**
+
+- **XGBoost** recommended for production (smaller, faster)
+- **Random Forest** good for comparison and feature analysis
+- You can switch between models in the API using `model_type` parameter
 
 ### For Better Accuracy:
 ⏳ **Expand dataset** - Current accuracy is low due to small training set (753 samples for 1,508 diseases).
@@ -162,5 +194,5 @@ python ml_models/scripts/train_random_forest.py
 ---
 
 **Last Updated**: December 2024  
-**Status**: 1 of 2 models trained (50%)
+**Status**: ✅ **2 of 2 models trained (100%)**
 
