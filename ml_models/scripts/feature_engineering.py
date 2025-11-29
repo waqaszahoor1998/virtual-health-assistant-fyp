@@ -29,31 +29,60 @@ SCRIPTS_DIR = Path(__file__).parent.parent / 'scripts'
 def load_cleaned_data():
     """
     Load cleaned dataset and symptom-disease mapping.
+    Tries to load expanded dataset first, falls back to original cleaned dataset.
     
     Returns:
         tuple: (cleaned_dataset, symptom_disease_mapping)
     """
     print("Loading cleaned data...")
     
-    # Load cleaned dataset
+    # Try to load expanded dataset first (if available)
+    expanded_dataset_file = PROCESSED_DATA_DIR / 'dataset_expanded_final.xlsx'
     dataset_file = PROCESSED_DATA_DIR / 'dataset_cleaned.xlsx'
-    if not dataset_file.exists():
+    
+    if expanded_dataset_file.exists():
+        print(f"✓ Found expanded dataset, loading from: {expanded_dataset_file}")
+        df = pd.read_excel(expanded_dataset_file)
+        print(f"Loaded {len(df)} records from expanded dataset")
+        
+        # Convert expanded dataset format to expected format
+        # Expanded dataset has: diseases, symptoms_list, symptoms_text, symptom_count
+        # Expected format needs: symptoms_list (JSON), disease_cleaned
+        
+        # Extract disease from 'diseases' column
+        df['disease_cleaned'] = df['diseases'].apply(lambda x: str(x).strip() if pd.notna(x) else None)
+        
+        # Ensure symptoms_list is in JSON format
+        if 'symptoms_list' in df.columns:
+            # Already in JSON format from merge script
+            pass
+        elif 'symptoms_text' in df.columns:
+            # Convert text to JSON format
+            df['symptoms_list'] = df['symptoms_text'].apply(
+                lambda x: json.dumps([s.strip() for s in str(x).split(',') if s.strip()]) 
+                if pd.notna(x) else '[]'
+            )
+        
+    elif dataset_file.exists():
+        print(f"Loading from original cleaned dataset: {dataset_file}")
+        df = pd.read_excel(dataset_file)
+        print(f"Loaded {len(df)} records from cleaned dataset")
+    else:
         raise FileNotFoundError(
-            f"Cleaned dataset not found at {dataset_file}.\n"
-            "Please run data/scripts/clean_symptoms.py first."
+            f"No dataset found. Expected one of:\n"
+            f"  - Expanded dataset: {expanded_dataset_file}\n"
+            f"  - Cleaned dataset: {dataset_file}\n"
+            f"Please run data/scripts/merge_datasets.py or data/scripts/clean_symptoms.py first."
         )
     
-    df = pd.read_excel(dataset_file)
-    print(f"Loaded {len(df)} records from cleaned dataset")
-    
-    # Load symptom-disease mapping
+    # Load symptom-disease mapping (optional)
     mapping_file = PROCESSED_DATA_DIR / 'symptom_disease_mapping.csv'
     if mapping_file.exists():
         mapping_df = pd.read_csv(mapping_file)
         print(f"Loaded {len(mapping_df)} symptom-disease mappings")
     else:
         mapping_df = None
-        print("Warning: Symptom-disease mapping not found")
+        print("Info: Symptom-disease mapping not found (optional)")
     
     return df, mapping_df
 
