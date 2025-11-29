@@ -115,7 +115,7 @@ def train_xgboost_model(X_train, y_train, X_val, y_val):
     return model
 
 
-def evaluate_model(model, X_test, y_test, disease_names):
+def evaluate_model(model, X_test, y_test, disease_names, y_train=None):
     """
     Evaluate model performance on test set.
     
@@ -132,10 +132,6 @@ def evaluate_model(model, X_test, y_test, disease_names):
     print("EVALUATING MODEL")
     print("=" * 60)
     
-    # Make predictions
-    print("Making predictions on test set...")
-    y_pred = model.predict(X_test)
-    
     # Get prediction probabilities (for MultiOutputClassifier, this returns list of arrays)
     # Each array contains probabilities for that label
     print("Getting prediction probabilities...")
@@ -145,6 +141,47 @@ def evaluate_model(model, X_test, y_test, disease_names):
     # Each element is the probability of that disease for that sample
     y_pred_proba = np.array([proba[:, 1] if proba.shape[1] > 1 else proba[:, 0] 
                             for proba in y_pred_proba_list]).T
+    
+    # Diagnostic: Check prediction probabilities
+    print("\n📊 Prediction Probability Statistics:")
+    print(f"  Max probability: {y_pred_proba.max():.4f}")
+    print(f"  Min probability: {y_pred_proba.min():.4f}")
+    print(f"  Mean probability: {y_pred_proba.mean():.4f}")
+    print(f"  Probabilities > 0.5: {(y_pred_proba > 0.5).sum()}")
+    print(f"  Probabilities > 0.3: {(y_pred_proba > 0.3).sum()}")
+    print(f"  Probabilities > 0.1: {(y_pred_proba > 0.1).sum()}")
+    
+    # Use top-k predictions per sample instead of fixed threshold
+    # This is better for sparse multi-label classification
+    print("\nUsing top-k prediction strategy...")
+    
+    # Find average number of diseases per sample in training data (need y_train access)
+    # We'll use a reasonable top-k based on the data structure
+    # For now, use top-3 predictions (most samples have 1 disease, so top-3 is reasonable)
+    top_k = 3
+    print(f"  Using top-{top_k} predictions per sample")
+    
+    # For each sample, predict top-k diseases
+    y_pred = np.zeros_like(y_pred_proba, dtype=int)
+    for i in range(y_pred_proba.shape[0]):
+        # Get top-k indices (highest probabilities)
+        top_k_indices = np.argsort(y_pred_proba[i])[-top_k:][::-1]
+        # Only include predictions with probability > 0.05 (very low threshold)
+        top_k_indices = top_k_indices[y_pred_proba[i, top_k_indices] > 0.05]
+        if len(top_k_indices) > 0:
+            y_pred[i, top_k_indices] = 1
+        else:
+            # Fallback: at least predict top-1 if all probabilities are very low
+            top_idx = np.argmax(y_pred_proba[i])
+            y_pred[i, top_idx] = 1
+    
+    print(f"  Total predictions made: {y_pred.sum()}")
+    print(f"  Samples with predictions: {(y_pred.sum(axis=1) > 0).sum()}/{y_pred.shape[0]}")
+    print(f"  Average predictions per sample: {y_pred.sum(axis=1).mean():.2f}")
+    
+    # Make predictions using standard method for comparison
+    print("\nMaking predictions on test set...")
+    y_pred_standard = model.predict(X_test)
     
     # Calculate metrics
     # For multi-label classification, we use subset accuracy
@@ -258,7 +295,7 @@ def main():
         model = train_xgboost_model(X_train, y_train, X_val, y_val)
         
         # Evaluate model
-        metrics = evaluate_model(model, X_test, y_test, disease_names)
+        metrics = evaluate_model(model, X_test, y_test, disease_names, y_train)
         
         # Save model
         save_model(model, metrics, 'xgboost_model')
