@@ -162,7 +162,7 @@ export const authAPI = {
 
 // Patient endpoints
 export const patientAPI = {
-  getAll: () => api.get('/patients'),
+  getAll: (params) => api.get('/patients', { params }),
   getById: (id) => api.get(`/patients/${id}`),
   create: (data) => api.post('/patients', data),
   update: (id, data) => api.put(`/patients/${id}`, data),
@@ -177,7 +177,11 @@ export const doctorAPI = {
 
 // Diagnosis endpoints
 export const diagnosisAPI = {
-  predict: (symptoms) => api.post('/diagnosis/predict', { symptoms }),
+  predict: (symptoms, modelType = 'xgboost', topK = 5) => api.post('/diagnosis/predict', {
+    symptoms,
+    model_type: modelType,
+    top_k: topK
+  }),
   create: (data) => api.post('/diagnosis', data),
   getById: (id) => api.get(`/diagnosis/${id}`),
 }
