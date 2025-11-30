@@ -3,13 +3,13 @@
   "model_type": "Multi-label Classifier",
   "features": 5000,
   "metrics": {
-    "accuracy": 0.08024691358024691,
-    "precision_macro": 0.0037577365163572055,
-    "recall_macro": 0.003647214854111406,
-    "f1_macro": 0.003625110521662246,
-    "precision_micro": 0.8666666666666667,
-    "recall_micro": 0.08024691358024691,
-    "f1_micro": 0.14689265536723164
+    "accuracy": 0.0860655737704918,
+    "precision_macro": 0.00847953216374269,
+    "recall_macro": 0.006158578263841422,
+    "f1_macro": 0.006852601589443694,
+    "precision_micro": 0.9767441860465116,
+    "recall_micro": 0.0860655737704918,
+    "f1_micro": 0.15819209039548024
   },
   "parameters": {
     "n_estimators": 200,
