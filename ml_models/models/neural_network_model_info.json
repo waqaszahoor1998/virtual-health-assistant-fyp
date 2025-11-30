@@ -1,0 +1,24 @@
+{
+  "model_name": "Neural Network (Multi-Label)",
+  "model_type": "Deep Learning - Multi-Label Classifier",
+  "architecture": "Sequential",
+  "layers": 12,
+  "total_parameters": 2810676,
+  "metrics": {
+    "accuracy": 0.45081967213114754,
+    "precision_macro": 0.04830504291030607,
+    "recall_macro": 0.04818631173894331,
+    "f1_macro": 0.04753846237347949,
+    "precision_micro": 0.86328125,
+    "recall_micro": 0.45286885245901637,
+    "f1_micro": 0.5940860215053764
+  },
+  "parameters": {
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "loss": "binary_crossentropy",
+    "activation": "sigmoid (multi-label)",
+    "batch_size": 32,
+    "epochs_trained": 61
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "accuracy": 0.0,
+  "precision_macro": 0.09008804304856936,
+  "recall_macro": 0.09571903242955875,
+  "f1_macro": 0.09163840995858659,
+  "precision_micro": 0.19740437158469945,
+  "recall_micro": 0.5922131147540983,
+  "f1_micro": 0.29610655737704916,
+  "models_used": [
+    "xgboost",
+    "random_forest",
+    "lightgbm",
+    "neural_network"
+  ]
+}

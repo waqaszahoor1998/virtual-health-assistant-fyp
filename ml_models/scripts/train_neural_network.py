@@ -23,6 +23,32 @@ try:
     from tensorflow import keras
     from tensorflow.keras import layers, models, callbacks
     TENSORFLOW_AVAILABLE = True
+    
+    # Optimize TensorFlow for maximum performance on any system
+    # Automatically detects and uses all available CPU cores
+    import os
+    import multiprocessing
+    
+    # Detect number of CPU cores automatically (works on any system)
+    num_cores = multiprocessing.cpu_count()
+    
+    # Configure TensorFlow to use all available CPU cores
+    os.environ['TF_NUM_INTEROP_THREADS'] = str(num_cores)  # Parallel operations
+    os.environ['TF_NUM_INTRAOP_THREADS'] = str(num_cores)  # Sequential operations
+    
+    # Enable optimizations (works on all platforms)
+    os.environ['TF_ENABLE_ONEDNN_OPTS'] = '1'  # Enable optimizations
+    
+    # TensorFlow will automatically use available hardware:
+    # - On Apple Silicon: Uses Metal GPU automatically
+    # - On NVIDIA GPUs: Uses CUDA automatically
+    # - On other systems: Uses CPU with all cores
+    
+    print("🚀 TensorFlow configured for optimal performance")
+    print(f"   CPU cores detected: {num_cores}")
+    print(f"   Using all {num_cores} CPU cores for training")
+    print("   GPU acceleration: Will be used automatically if available")
+    
 except ImportError:
     TENSORFLOW_AVAILABLE = False
     print("⚠️  TensorFlow not installed. Installing required packages...")
