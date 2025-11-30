@@ -20,6 +20,8 @@ import time
 try:
     from catboost import CatBoostClassifier
     from sklearn.multioutput import MultiOutputClassifier
+    from sklearn.dummy import DummyClassifier
+    from sklearn.base import BaseEstimator
     CATBOOST_AVAILABLE = True
 except ImportError:
     CATBOOST_AVAILABLE = False
@@ -58,9 +60,88 @@ def load_preprocessed_data():
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 
+class CustomMultiOutputClassifier(BaseEstimator):
+    """Custom MultiOutputClassifier that handles diseases with no positive examples."""
+    
+    def __init__(self, base_estimator, n_jobs=-1):
+        self.base_estimator = base_estimator
+        self.n_jobs = n_jobs
+        self.estimators_ = []
+        self.dummy_estimators_ = []
+        self.disease_indices_ = []
+    
+    def fit(self, X, y):
+        """Train one classifier per disease, using dummy classifier for diseases with no positives."""
+        n_diseases = y.shape[1]
+        self.estimators_ = []
+        self.dummy_estimators_ = []
+        self.disease_indices_ = []
+        
+        print(f"\nTraining {n_diseases} binary classifiers...")
+        skipped = 0
+        
+        for i in range(n_diseases):
+            y_col = y[:, i]
+            
+            # Check if disease has any positive examples
+            if y_col.sum() == 0:
+                # Use DummyClassifier that always predicts 0
+                dummy = DummyClassifier(strategy='constant', constant=0)
+                dummy.fit(X, y_col)
+                self.dummy_estimators_.append((i, dummy))
+                self.disease_indices_.append(i)
+                skipped += 1
+            else:
+                # Train CatBoost classifier
+                estimator = CatBoostClassifier(
+                    iterations=200,
+                    depth=8,
+                    learning_rate=0.05,
+                    loss_function='Logloss',
+                    eval_metric='Logloss',
+                    random_seed=42,
+                    verbose=False,
+                    task_type='CPU'
+                )
+                estimator.fit(X, y_col)
+                self.estimators_.append((i, estimator))
+                self.disease_indices_.append(i)
+            
+            if (i + 1) % 100 == 0:
+                print(f"  Trained {i + 1}/{n_diseases} classifiers... (skipped {skipped})")
+        
+        print(f"\n✓ Training complete: {len(self.estimators_)} CatBoost + {len(self.dummy_estimators_)} Dummy classifiers")
+        return self
+    
+    def predict_proba(self, X):
+        """Get prediction probabilities for all diseases."""
+        n_samples = X.shape[0]
+        n_diseases = len(self.estimators_) + len(self.dummy_estimators_)
+        
+        probas = []
+        all_indices = sorted([idx for idx, _ in self.estimators_] + [idx for idx, _ in self.dummy_estimators_])
+        
+        proba_matrix = np.zeros((n_diseases, n_samples, 2))
+        
+        for idx, estimator in self.estimators_:
+            proba = estimator.predict_proba(X)
+            proba_matrix[idx] = proba
+        
+        for idx, dummy in self.dummy_estimators_:
+            proba = dummy.predict_proba(X)
+            proba_matrix[idx] = proba
+        
+        # Convert to list format expected by MultiOutputClassifier interface
+        for i in range(n_diseases):
+            probas.append(proba_matrix[i])
+        
+        return probas
+
+
 def train_catboost_model(X_train, y_train, X_val, y_val):
     """
     Train CatBoost model for multi-label classification.
+    Handles diseases with no positive examples using DummyClassifier.
     
     Args:
         X_train: Training features
@@ -69,46 +150,32 @@ def train_catboost_model(X_train, y_train, X_val, y_val):
         y_val: Validation labels
     
     Returns:
-        MultiOutputClassifier: Trained model
+        CustomMultiOutputClassifier: Trained model
     """
     print("\n" + "=" * 60)
     print("TRAINING CATBOOST MODEL")
     print("=" * 60)
     
-    # CatBoost parameters
-    base_cat = CatBoostClassifier(
-        iterations=200,
-        depth=8,
-        learning_rate=0.05,
-        loss_function='Logloss',
-        eval_metric='Logloss',
-        random_seed=42,
-        verbose=False,
-        task_type='CPU'
-    )
-    
-    # Wrap with MultiOutputClassifier for multi-label classification
-    model = MultiOutputClassifier(base_cat, n_jobs=-1)
-    
     print("\nModel parameters:")
     print(f"  - Base classifier: CatBoost")
-    print(f"  - iterations: {base_cat.get_params()['iterations']}")
-    print(f"  - depth: {base_cat.get_params()['depth']}")
-    print(f"  - learning_rate: {base_cat.get_params()['learning_rate']}")
+    print(f"  - iterations: 200")
+    print(f"  - depth: 8")
+    print(f"  - learning_rate: 0.05")
     print(f"  - Multi-label strategy: One binary classifier per disease")
     print(f"  - Number of diseases: {y_train.shape[1]}")
+    print(f"  - Handling: DummyClassifier for diseases with no positives")
     
     print("\nTraining model...")
-    print(f"This will train one binary classifier for each of {y_train.shape[1]} diseases...")
     print("(This may take 10-20 minutes depending on your system)")
     
     start_time = time.time()
     
-    # Train model
+    # Use custom classifier that handles edge cases
+    model = CustomMultiOutputClassifier(None, n_jobs=-1)
     model.fit(X_train, y_train)
     
     training_time = time.time() - start_time
-    print(f"\n✓ Training completed in {training_time:.2f} seconds")
+    print(f"\n✓ Training completed in {training_time:.2f} seconds ({training_time/60:.1f} minutes)")
     
     return model
 
@@ -127,8 +194,12 @@ def evaluate_model(model, X_test, y_test, disease_names):
     y_pred_proba_list = model.predict_proba(X_test)
     
     # Convert to probability matrix
-    y_pred_proba = np.array([proba[:, 1] if proba.shape[1] > 1 else proba[:, 0] 
-                            for proba in y_pred_proba_list]).T
+    # Handle both list and array formats
+    if isinstance(y_pred_proba_list, list):
+        y_pred_proba = np.array([proba[:, 1] if proba.shape[1] > 1 else proba[:, 0] 
+                                for proba in y_pred_proba_list]).T
+    else:
+        y_pred_proba = y_pred_proba_list
     
     # Use top-k predictions
     print("\nUsing top-k prediction strategy...")
