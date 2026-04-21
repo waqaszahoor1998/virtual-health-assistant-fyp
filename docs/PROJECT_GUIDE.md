@@ -124,6 +124,18 @@ Copy `backend/.env.example` to `backend/.env` and adjust.
 
 - **Python 3.10+** (3.8+ may work; use a venv)
 - **Node.js 18+** and npm (for the frontend)
+- **Git LFS** (required to download large files from GitHub)
+
+### 6.1.1 If you cloned from GitHub: pull LFS files
+
+This repo stores large assets (datasets + pickles) using **Git LFS**.
+
+```powershell
+git lfs install
+git lfs pull
+```
+
+If you skip this, you may have small “pointer files” instead of the real `.csv/.xlsx/.pkl/.docx` content.
 
 ### 6.2 Backend
 
@@ -203,6 +215,8 @@ python train_lightgbm.py
 ```
 
 This should create **`ml_models/models/lightgbm_model.pkl`** plus metrics/info JSON files.
+
+**Important:** `lightgbm_model.pkl` is **generated** by training. The repo includes vectorizer/encoder pickles and dataset artifacts via Git LFS, but students may need to run training (or use `DEMO_ML_FALLBACK=1`) depending on what’s already present in `ml_models/models/`.
 
 Optional: run other `train_*.py` scripts for coursework comparisons; only LightGBM (and optionally RF/XGB if present) is wired in `ml_service.py` today.
 
