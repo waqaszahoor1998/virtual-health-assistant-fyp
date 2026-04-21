@@ -26,7 +26,8 @@ npm run dev
 ```
 
 - Frontend: **http://localhost:3000** (Vite proxies `/api` → **http://localhost:5000**)
-- Seed demo users: `flask seed-demo` (run inside `backend/` with venv active; password in `backend/app/cli/seed.py`)
+- Seed demo users: `flask seed-db` (run inside `backend/` with venv active; password in `backend/app/cli/seed.py`)
+- Build symptom/disease catalogs: `flask build-catalog` (recommended; enables large symptom list in UI)
 
 **ML:** The API expects `ml_models/models/lightgbm_model.pkl` (generate with `ml_models/scripts/feature_engineering.py` then `train_lightgbm.py`). For a UI demo without that file, set `DEMO_ML_FALLBACK=1` in `backend/.env` (see guide).
 

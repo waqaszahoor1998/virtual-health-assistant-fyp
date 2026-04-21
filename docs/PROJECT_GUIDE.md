@@ -139,6 +139,11 @@ Copy-Item .env.example .env
 python run.py
 ```
 
+**Notes (why this won’t affect your other software):**
+
+- Python packages install into **`backend/venv/` only** (project-local). Your system Python is not modified.
+- If you ever want to reset the backend environment: delete the `backend/venv/` folder and recreate it.
+
 API base: `http://localhost:5000`  
 API routes are under **`/api/...`** (blueprint prefix).
 
@@ -166,6 +171,12 @@ cd frontend
 npm install
 npm run dev
 ```
+
+**Notes:**
+
+- Frontend dependencies install into **`frontend/node_modules/`** (project-local).
+- Node.js itself is a system install. It won’t modify your Python/venv setup.
+- If your terminal says `npm is not recognized`, install **Node.js 18+** and reopen the terminal.
 
 Vite serves the app at **`http://localhost:3000`** and proxies **`/api`** to port **5000**.
 
