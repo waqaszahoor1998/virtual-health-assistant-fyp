@@ -1,0 +1,19 @@
+# Minimal backend deps for tomorrow's demo (SQLite + seeded data + demo ML fallback).
+flask==3.0.0
+flask-cors==4.0.0
+flask-jwt-extended==4.6.0
+flask-sqlalchemy==3.1.1
+flask-migrate==4.0.5
+python-dotenv==1.0.0
+
+# Data utilities used by DrugBank CSV search
+pandas==2.1.3
+numpy==1.26.2
+
+# Needed by ml_service (even in fallback mode we import joblib/numpy)
+scikit-learn==1.3.2
+joblib==1.3.2
+
+# Handy for smoke testing / local scripts
+requests==2.31.0
+

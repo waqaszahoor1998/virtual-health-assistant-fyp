@@ -10,11 +10,13 @@
  */
 
 import React, { useState, useEffect } from 'react'
-import { Container, Row, Col, Card, Tab, Tabs, Button, Alert, Badge, Spinner } from 'react-bootstrap'
+import { Container, Row, Col, Card, Tab, Tabs, Button, Alert, Badge, Spinner, Form } from 'react-bootstrap'
 import { toast } from 'react-toastify'
 import { useAuth } from '../context/AuthContext'
-import { patientAPI, diagnosisAPI, prescriptionAPI, appointmentAPI } from '../services/api'
+import { patientAPI, diagnosisAPI, prescriptionAPI, appointmentAPI, doctorAPI, consultationAPI } from '../services/api'
 import AppointmentBookingModal from '../components/AppointmentBookingModal'
+import SymptomSelector from '../components/SymptomSelector'
+import DiseasePredictionCard from '../components/DiseasePredictionCard'
 
 /**
  * Main Patient Dashboard component.
@@ -36,6 +38,23 @@ function PatientDashboard() {
   const [appointments, setAppointments] = useState([])
   const [loadingAppointments, setLoadingAppointments] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)
+
+  const commonSymptoms = [
+    'fever', 'headache', 'cough', 'nausea', 'fatigue', 'dizziness',
+    'chest pain', 'abdominal pain', 'sore throat', 'muscle pain',
+    'shortness of breath', 'rash', 'diarrhea', 'vomiting'
+  ]
+  const [selfSymptoms, setSelfSymptoms] = useState([])
+  const [selfPredicting, setSelfPredicting] = useState(false)
+  const [selfPredictions, setSelfPredictions] = useState([])
+
+  const [doctors, setDoctors] = useState([])
+  const [consultations, setConsultations] = useState([])
+  const [loadingConsultations, setLoadingConsultations] = useState(false)
+  const [consultSubject, setConsultSubject] = useState('')
+  const [consultMessage, setConsultMessage] = useState('')
+  const [consultDoctorId, setConsultDoctorId] = useState('')
+  const [sendingConsult, setSendingConsult] = useState(false)
   
   /**
    * Load patient profile on component mount.
@@ -52,6 +71,9 @@ function PatientDashboard() {
       // Load data for overview
       loadPrescriptions()
       loadAppointments()
+      loadDiagnosesForOverview()
+      loadConsultations()
+      loadDoctorsList()
     }
   }, [patient])
   
@@ -65,6 +87,8 @@ function PatientDashboard() {
       loadPrescriptions()
     } else if (activeTab === 'appointments' && patient && appointments.length === 0) {
       loadAppointments()
+    } else if (activeTab === 'consult' && patient && consultations.length === 0) {
+      loadConsultations()
     }
   }, [activeTab, patient])
   
@@ -91,18 +115,120 @@ function PatientDashboard() {
    * Load patient diagnoses (if API endpoint exists).
    * Note: This would need a backend endpoint like GET /diagnosis/patient/:patient_id
    */
+  const normalizeDiagnosisRow = (row) => {
+    let symptoms = row.symptoms
+    let predicted = row.predicted_diseases
+    try {
+      if (typeof symptoms === 'string') symptoms = JSON.parse(symptoms)
+    } catch {
+      /* keep string */
+    }
+    try {
+      if (typeof predicted === 'string') predicted = JSON.parse(predicted)
+    } catch {
+      /* keep */
+    }
+    return { ...row, symptoms, predicted_diseases: predicted }
+  }
+
+  const loadDiagnosesForOverview = async () => {
+    try {
+      const res = await diagnosisAPI.listMine()
+      const rows = (res.data.diagnoses || []).map(normalizeDiagnosisRow)
+      setDiagnoses(rows)
+    } catch {
+      setDiagnoses([])
+    }
+  }
+
   const loadDiagnoses = async () => {
     setLoadingDiagnoses(true)
     try {
-      // TODO: Implement endpoint to get patient diagnoses
-      // For now, show placeholder
-      setDiagnoses([])
-      toast.info('Diagnosis history will be available soon')
+      const res = await diagnosisAPI.listMine()
+      const rows = (res.data.diagnoses || []).map(normalizeDiagnosisRow)
+      setDiagnoses(rows)
     } catch (error) {
       console.error('Error loading diagnoses:', error)
       toast.error('Failed to load diagnosis history.')
     } finally {
       setLoadingDiagnoses(false)
+    }
+  }
+
+  const loadDoctorsList = async () => {
+    try {
+      const res = await doctorAPI.getAll({ per_page: 100 })
+      setDoctors(res.data.doctors || [])
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const loadConsultations = async () => {
+    setLoadingConsultations(true)
+    try {
+      const res = await consultationAPI.list()
+      setConsultations(res.data.consultations || [])
+    } catch (e) {
+      toast.error('Failed to load messages')
+    } finally {
+      setLoadingConsultations(false)
+    }
+  }
+
+  const handleSelfPredict = async () => {
+    if (selfSymptoms.length === 0) {
+      toast.warning('Select at least one symptom')
+      return
+    }
+    setSelfPredicting(true)
+    setSelfPredictions([])
+    try {
+      const res = await diagnosisAPI.predictSelf(selfSymptoms, 'lightgbm', 5)
+      if (res.data.success && res.data.prediction) {
+        setSelfPredictions(res.data.prediction.predictions || [])
+        toast.success('Possible conditions generated (informational only).')
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Prediction failed')
+    } finally {
+      setSelfPredicting(false)
+    }
+  }
+
+  const sendConsultation = async (e) => {
+    e.preventDefault()
+    if (!consultSubject.trim() || !consultMessage.trim()) {
+      toast.error('Subject and message are required')
+      return
+    }
+    setSendingConsult(true)
+    try {
+      await consultationAPI.create({
+        subject: consultSubject.trim(),
+        message: consultMessage.trim(),
+        doctor_id: consultDoctorId ? parseInt(consultDoctorId, 10) : undefined,
+        symptoms: selfSymptoms.length ? selfSymptoms : undefined,
+      })
+      toast.success('Message sent to your care team')
+      setConsultSubject('')
+      setConsultMessage('')
+      loadConsultations()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send')
+    } finally {
+      setSendingConsult(false)
+    }
+  }
+
+  const cancelAppointment = async (appointment) => {
+    if (!window.confirm('Cancel this appointment?')) return
+    try {
+      await appointmentAPI.update(appointment.id, { status: 'cancelled' })
+      toast.success('Appointment cancelled')
+      loadAppointments()
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Could not cancel')
     }
   }
   
@@ -278,6 +404,12 @@ function PatientDashboard() {
                     <Button variant="info" onClick={() => setActiveTab('diagnoses')}>
                       📋 View Medical History
                     </Button>
+                    <Button variant="warning" onClick={() => setActiveTab('symptom_check')}>
+                      🤒 Symptom check (AI)
+                    </Button>
+                    <Button variant="secondary" onClick={() => setActiveTab('consult')}>
+                      ✉️ Message a doctor
+                    </Button>
                   </div>
                 </Card.Body>
               </Card>
@@ -376,7 +508,11 @@ function PatientDashboard() {
                           {appointments.map((appointment) => (
                             <tr key={appointment.id}>
                               <td>{formatDate(appointment.appointment_date)}</td>
-                              <td>Doctor #{appointment.doctor_id}</td>
+                              <td>
+                                {doctors.find((d) => d.id === appointment.doctor_id)
+                                  ? `Dr. ${doctors.find((d) => d.id === appointment.doctor_id).first_name} ${doctors.find((d) => d.id === appointment.doctor_id).last_name}`
+                                  : `Doctor #${appointment.doctor_id}`}
+                              </td>
                               <td>{appointment.reason || 'N/A'}</td>
                               <td>
                                 <Badge bg={
@@ -391,7 +527,7 @@ function PatientDashboard() {
                                   View
                                 </Button>
                                 {appointment.status === 'scheduled' && (
-                                  <Button variant="outline-danger" size="sm">
+                                  <Button variant="outline-danger" size="sm" onClick={() => cancelAppointment(appointment)}>
                                     Cancel
                                   </Button>
                                 )}
@@ -438,6 +574,11 @@ function PatientDashboard() {
                                 <p className="text-muted mb-2">
                                   {formatDate(diagnosis.created_at)}
                                 </p>
+                                {Array.isArray(diagnosis.symptoms) && diagnosis.symptoms.length > 0 && (
+                                  <p className="small mb-1">
+                                    <strong>Symptoms:</strong> {diagnosis.symptoms.join(', ')}
+                                  </p>
+                                )}
                                 {diagnosis.notes && (
                                   <p className="mb-0">{diagnosis.notes}</p>
                                 )}
@@ -447,6 +588,94 @@ function PatientDashboard() {
                         </Card>
                       ))}
                     </div>
+                  )}
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Tab>
+
+        <Tab eventKey="symptom_check" title="Symptom check">
+          <Alert variant="warning">
+            This is an informational tool only. It does not replace a clinician. Share results with your doctor using &quot;Message a doctor&quot;.
+          </Alert>
+          <Card className="mb-3">
+            <Card.Header><Card.Title className="mb-0">Your symptoms</Card.Title></Card.Header>
+            <Card.Body>
+              <SymptomSelector
+                selectedSymptoms={selfSymptoms}
+                onSymptomsChange={setSelfSymptoms}
+                availableSymptoms={commonSymptoms}
+                maxSymptoms={15}
+              />
+              <Button className="mt-3" onClick={handleSelfPredict} disabled={selfPredicting || selfSymptoms.length === 0}>
+                {selfPredicting ? 'Analyzing…' : 'What might this be?'}
+              </Button>
+            </Card.Body>
+          </Card>
+          <DiseasePredictionCard
+            predictions={selfPredictions}
+            symptoms={selfSymptoms}
+            loading={selfPredicting}
+          />
+        </Tab>
+
+        <Tab eventKey="consult" title="Doctor messages">
+          <Row>
+            <Col md={5}>
+              <Card className="mb-3">
+                <Card.Header><Card.Title className="mb-0">Ask a doctor</Card.Title></Card.Header>
+                <Card.Body>
+                  <Form onSubmit={sendConsultation}>
+                    <Form.Group className="mb-2">
+                      <Form.Label>Doctor (optional)</Form.Label>
+                      <Form.Select value={consultDoctorId} onChange={(e) => setConsultDoctorId(e.target.value)}>
+                        <option value="">Any available doctor</option>
+                        {doctors.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            Dr. {d.first_name} {d.last_name}{d.specialization ? ` — ${d.specialization}` : ''}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                    <Form.Group className="mb-2">
+                      <Form.Label>Subject</Form.Label>
+                      <Form.Control value={consultSubject} onChange={(e) => setConsultSubject(e.target.value)} required />
+                    </Form.Group>
+                    <Form.Group className="mb-2">
+                      <Form.Label>Message</Form.Label>
+                      <Form.Control as="textarea" rows={4} value={consultMessage} onChange={(e) => setConsultMessage(e.target.value)} required />
+                    </Form.Group>
+                    <Button type="submit" disabled={sendingConsult}>{sendingConsult ? 'Sending…' : 'Send'}</Button>
+                  </Form>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={7}>
+              <Card>
+                <Card.Header><Card.Title className="mb-0">Inbox</Card.Title></Card.Header>
+                <Card.Body>
+                  {loadingConsultations ? (
+                    <div className="text-center py-4"><Spinner animation="border" /></div>
+                  ) : consultations.length === 0 ? (
+                    <Alert variant="info" className="mb-0">No messages yet.</Alert>
+                  ) : (
+                    consultations.map((c) => (
+                      <Card key={c.id} className="mb-2">
+                        <Card.Body>
+                          <div className="d-flex justify-content-between">
+                            <strong>{c.subject}</strong>
+                            <Badge bg="secondary">{c.status}</Badge>
+                          </div>
+                          <p className="mb-1 mt-2">{c.message}</p>
+                          {c.doctor_response && (
+                            <Alert variant="success" className="mb-0 py-2">
+                              <strong>Doctor:</strong> {c.doctor_response}
+                            </Alert>
+                          )}
+                        </Card.Body>
+                      </Card>
+                    ))
                   )}
                 </Card.Body>
               </Card>

@@ -1,10 +1,6 @@
 /**
- * Main entry point for the React application.
- * 
- * This file:
- * - Renders the root App component
- * - Sets up routing and global providers
- * - Initializes Firebase configuration
+ * Main entry for the React SPA.
+ * BrowserRouter wraps App; auth and API calls use JWT (see AuthContext, services/api.js).
  */
 
 import React from 'react'

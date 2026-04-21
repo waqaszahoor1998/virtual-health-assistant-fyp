@@ -1,8 +1,14 @@
 """
-Flask application factory pattern.
+Flask application factory.
 
-This module initializes the Flask application and registers all blueprints,
-extensions, and configurations.
+Wiring for new readers:
+  create_app() loads config from config.py (DB URL, JWT, ML_MODELS_DIR, …),
+  attaches SQLAlchemy + JWT + Migrate, enables CORS for /api, and mounts
+  the api_bp blueprint at URL prefix /api (see app/api/__init__.py).
+  Route modules (auth, diagnosis, …) import api_bp and register routes on it.
+
+Frontend (Vite) talks to /api/... on the same host or via proxy; see
+frontend/vite.config.js.
 """
 
 from flask import Flask
@@ -10,8 +16,13 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
-from config import config
 import os
+from dotenv import load_dotenv
+
+# Allow local `.env` to win over inherited shell env (common on dev machines).
+load_dotenv(override=True)
+
+from config import config
 
 
 # Initialize extensions (will be initialized in create_app)
@@ -60,6 +71,10 @@ def create_app(config_name=None):
     # Import here to avoid circular imports
     from app.api import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
+
+    # Register CLI commands
+    from app.cli.seed import seed_db_command
+    app.cli.add_command(seed_db_command)
     
     # Register error handlers
     register_error_handlers(app)
@@ -98,5 +113,5 @@ def register_error_handlers(app):
 
 # Import models to ensure they are registered with SQLAlchemy
 # Import here to avoid circular imports
-from app.models import user, patient, doctor, diagnosis, prescription, appointment
+from app.models import user, patient, doctor, diagnosis, prescription, appointment, consultation_request
 

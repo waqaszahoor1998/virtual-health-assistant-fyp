@@ -1,8 +1,8 @@
 /**
- * API service for backend communication.
- * 
- * This module provides a centralized axios instance configured
- * for communicating with the backend API using JWT authentication.
+ * Single Axios client for the Flask API.
+ * - baseURL: VITE_API_BASE_URL or '/api' (Vite dev server proxies /api → :5000)
+ * - Attaches Bearer access_token; on 401 tries /auth/refresh then retries once
+ * Pair with AuthContext (login stores tokens in localStorage).
  */
 
 import axios from 'axios'
@@ -177,19 +177,26 @@ export const doctorAPI = {
 
 // Diagnosis endpoints
 export const diagnosisAPI = {
-  predict: (symptoms, modelType = 'xgboost', topK = 5) => api.post('/diagnosis/predict', {
+  predict: (symptoms, modelType = 'lightgbm', topK = 5) => api.post('/diagnosis/predict', {
+    symptoms,
+    model_type: modelType,
+    top_k: topK
+  }),
+  predictSelf: (symptoms, modelType = 'lightgbm', topK = 5) => api.post('/diagnosis/predict-self', {
     symptoms,
     model_type: modelType,
     top_k: topK
   }),
   create: (data) => api.post('/diagnosis', data),
   getById: (id) => api.get(`/diagnosis/${id}`),
+  listMine: () => api.get('/diagnosis/my'),
 }
 
 // Drug endpoints
 export const drugAPI = {
   search: (query) => api.get('/drugs/search', { params: { q: query } }),
-  suggest: (diagnosisId) => api.post('/drugs/suggest', { diagnosis_id: diagnosisId }),
+  suggestForDisease: (diseaseName, limit = 10) =>
+    api.post('/drugs/suggest', { disease: diseaseName, limit }),
 }
 
 // Prescription endpoints
@@ -206,4 +213,11 @@ export const appointmentAPI = {
   getById: (id) => api.get(`/appointments/${id}`),
   update: (id, data) => api.put(`/appointments/${id}`, data),
   delete: (id) => api.delete(`/appointments/${id}`),
+}
+
+// Consultation / ask-doctor
+export const consultationAPI = {
+  create: (data) => api.post('/consultations', data),
+  list: () => api.get('/consultations'),
+  respond: (id, data) => api.put(`/consultations/${id}/respond`, data),
 }

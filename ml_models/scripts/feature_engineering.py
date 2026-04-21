@@ -44,24 +44,39 @@ def load_cleaned_data():
         print(f"✓ Found expanded dataset, loading from: {expanded_dataset_file}")
         df = pd.read_excel(expanded_dataset_file)
         print(f"Loaded {len(df)} records from expanded dataset")
+        print(f"Columns in dataset: {list(df.columns)}")
         
         # Convert expanded dataset format to expected format
-        # Expanded dataset has: diseases, symptoms_list, symptoms_text, symptom_count
+        # New dataset has: symptoms, disease (singular)
+        # Old dataset had: diseases, symptoms_list, symptoms_text
         # Expected format needs: symptoms_list (JSON), disease_cleaned
         
-        # Extract disease from 'diseases' column
-        df['disease_cleaned'] = df['diseases'].apply(lambda x: str(x).strip() if pd.notna(x) else None)
+        # Extract disease from 'disease' or 'diseases' column
+        if 'disease' in df.columns:
+            df['disease_cleaned'] = df['disease'].apply(lambda x: str(x).strip() if pd.notna(x) else None)
+        elif 'diseases' in df.columns:
+            df['disease_cleaned'] = df['diseases'].apply(lambda x: str(x).strip() if pd.notna(x) else None)
+        else:
+            raise ValueError("No disease column found in dataset")
         
         # Ensure symptoms_list is in JSON format
         if 'symptoms_list' in df.columns:
             # Already in JSON format from merge script
             pass
+        elif 'symptoms' in df.columns:
+            # Convert symptoms text to JSON format
+            df['symptoms_list'] = df['symptoms'].apply(
+                lambda x: json.dumps([s.strip() for s in str(x).split(',') if s.strip()]) 
+                if pd.notna(x) else '[]'
+            )
         elif 'symptoms_text' in df.columns:
             # Convert text to JSON format
             df['symptoms_list'] = df['symptoms_text'].apply(
                 lambda x: json.dumps([s.strip() for s in str(x).split(',') if s.strip()]) 
                 if pd.notna(x) else '[]'
             )
+        else:
+            raise ValueError("No symptoms column found in dataset")
         
     elif dataset_file.exists():
         print(f"Loading from original cleaned dataset: {dataset_file}")

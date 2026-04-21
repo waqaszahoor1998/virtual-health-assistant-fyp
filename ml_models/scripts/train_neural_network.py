@@ -222,10 +222,23 @@ def evaluate_model(model, X_test, y_test, disease_names):
     print("Making predictions on test set...")
     y_pred_proba = model.predict(X_test, verbose=0)
     
-    # Use threshold for binary predictions
-    # Default threshold is 0.5, but we can optimize
-    threshold = 0.5
-    y_pred = (y_pred_proba >= threshold).astype(int)
+    # Use top-k prediction strategy for sparse multi-label classification
+    # Instead of threshold, predict top 3 most likely diseases per sample
+    print("\nUsing top-k prediction strategy...")
+    k = 3  # Number of top predictions to make
+    y_pred = np.zeros_like(y_pred_proba)
+    
+    for i in range(len(y_pred_proba)):
+        # Get indices of top k predictions
+        top_k_indices = np.argsort(y_pred_proba[i])[-k:]
+        y_pred[i, top_k_indices] = 1
+    
+    # Count how many predictions were made
+    total_predictions = np.sum(y_pred)
+    samples_with_predictions = np.sum(np.any(y_pred == 1, axis=1))
+    print(f"  Using top-{k} predictions per sample")
+    print(f"  Total predictions made: {total_predictions}")
+    print(f"  Samples with predictions: {samples_with_predictions}/{len(y_pred)}")
     
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred)

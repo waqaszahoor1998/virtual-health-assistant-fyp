@@ -1,11 +1,17 @@
 """
-Application entry point for development server.
+Development server entry: loads backend/.env, then create_app().
 
-Run this file to start the Flask development server.
-For production, use a WSGI server like Gunicorn.
+Full setup, ports, ML artifacts: see repo docs/PROJECT_GUIDE.md
 """
 
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from backend/.env if present.
+# This keeps demo setup copy/paste friendly on Windows.
+load_dotenv()
+
+# Import after loading .env so config reads the right values.
 from app import create_app
 
 # Create Flask application instance

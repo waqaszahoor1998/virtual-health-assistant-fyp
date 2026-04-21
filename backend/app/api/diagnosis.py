@@ -1,8 +1,15 @@
 """
-Diagnosis API endpoints.
+Diagnosis API — symptom → disease suggestions and diagnosis records.
 
-Handles disease prediction from symptoms using ML models.
-Requires authentication and doctor role for creating diagnoses.
+Prediction endpoints call app.utils.ml_service.get_ml_service(), which loads
+pickles from ml_models/models/ (see ML_MODELS_DIR in config.py).
+
+Routes:
+  POST /diagnosis/predict       — doctor only; full ML path
+  POST /diagnosis/predict-self  — patient only; same ML + disclaimer
+  POST /diagnosis               — doctor saves a Diagnosis row to DB
+  GET  /diagnosis/my            — patient lists own diagnoses
+  GET  /diagnosis/<id>          — patient (own) or doctor
 """
 
 from flask import request, jsonify
@@ -25,7 +32,7 @@ def predict_diagnosis():
     Expected JSON payload:
     {
         "symptoms": ["fever", "headache", "nausea"],
-        "model_type": "xgboost" (optional, defaults to "xgboost"),
+        "model_type": "lightgbm" (optional, defaults to "lightgbm"),
         "top_k": 5 (optional, number of predictions to return)
     }
     
@@ -72,11 +79,11 @@ def predict_diagnosis():
         if not ml_service.is_available():
             return jsonify({
                 'error': 'ML models not available. Please train models first.',
-                'instructions': 'Run ml_models/scripts/feature_engineering.py and train_xgboost.py'
+                'instructions': 'Run ml_models/scripts/feature_engineering.py and train_lightgbm.py'
             }), 503
         
         # Get prediction parameters
-        model_type = data.get('model_type', 'xgboost')
+        model_type = data.get('model_type', 'lightgbm')
         top_k = data.get('top_k', 5)
         
         # Make prediction
@@ -99,6 +106,90 @@ def predict_diagnosis():
     
     except Exception as e:
         return jsonify({'error': f'Failed to predict diagnosis: {str(e)}'}), 500
+
+
+@api_bp.route('/diagnosis/predict-self', methods=['POST'])
+@jwt_required()
+def predict_diagnosis_self():
+    """
+    Patient-facing disease prediction from symptoms (informational only).
+    Same ML path as /diagnosis/predict but allowed for role=patient.
+    """
+    try:
+        user_id = int(get_jwt_identity())
+        current_user = User.query.get(user_id)
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+        if current_user.role != 'patient':
+            return jsonify({'error': 'Only patients can use this endpoint'}), 403
+
+        patient = Patient.query.filter_by(user_id=user_id).first()
+        if not patient:
+            return jsonify({'error': 'Patient profile not found'}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        if 'symptoms' not in data:
+            return jsonify({'error': 'Symptoms are required'}), 400
+
+        symptoms = data['symptoms']
+        if not isinstance(symptoms, list):
+            return jsonify({'error': 'Symptoms must be a list'}), 400
+        if len(symptoms) == 0:
+            return jsonify({'error': 'At least one symptom is required'}), 400
+        if len(symptoms) > 20:
+            return jsonify({'error': 'Maximum 20 symptoms allowed'}), 400
+
+        ml_service = get_ml_service()
+        if not ml_service.is_available():
+            return jsonify({
+                'error': 'ML models not available. Please train models first.',
+                'instructions': 'Run ml_models/scripts/feature_engineering.py and train_lightgbm.py'
+            }), 503
+
+        model_type = data.get('model_type', 'lightgbm')
+        top_k = min(int(data.get('top_k', 5)), 10)
+
+        prediction_result = ml_service.predict_diseases(
+            symptoms=symptoms,
+            model_type=model_type,
+            top_k=top_k
+        )
+
+        return jsonify({
+            'success': True,
+            'disclaimer': 'Informational only — not a medical diagnosis. Consult a clinician.',
+            'patient_id': patient.id,
+            'prediction': prediction_result
+        }), 200
+    except Exception as e:
+        return jsonify({'error': f'Failed to predict diagnosis: {str(e)}'}), 500
+
+
+@api_bp.route('/diagnosis/my', methods=['GET'])
+@jwt_required()
+def list_my_diagnoses():
+    """List diagnoses for the logged-in patient."""
+    try:
+        user_id = int(get_jwt_identity())
+        current_user = User.query.get(user_id)
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+        if current_user.role != 'patient':
+            return jsonify({'error': 'Only patients can list their diagnoses here'}), 403
+
+        patient = Patient.query.filter_by(user_id=user_id).first()
+        if not patient:
+            return jsonify({'diagnoses': [], 'total': 0}), 200
+
+        rows = Diagnosis.query.filter_by(patient_id=patient.id).order_by(Diagnosis.created_at.desc()).all()
+        return jsonify({
+            'diagnoses': [d.to_dict() for d in rows],
+            'total': len(rows),
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @api_bp.route('/diagnosis', methods=['POST'])

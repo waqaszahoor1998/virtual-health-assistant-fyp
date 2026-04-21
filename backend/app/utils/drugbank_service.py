@@ -19,13 +19,17 @@ class DrugBankService:
     
     def __init__(self):
         """Initialize DrugBank service with data path."""
-        # Get data directory from config
-        data_dir = Path(current_app.config.get('DATA_DIR',
-            Path(__file__).parent.parent.parent / 'data'
-        ))
-        
-        # DrugBank CSV file
-        self.drugbank_file = data_dir / 'raw' / 'drugbank_clean.csv'
+        configured_path = current_app.config.get("DRUGBANK_CSV")
+        if configured_path:
+            self.drugbank_file = Path(configured_path)
+        else:
+            data_dir = Path(
+                current_app.config.get(
+                    "DATA_DIR",
+                    Path(__file__).parent.parent.parent / "data",
+                )
+            )
+            self.drugbank_file = data_dir / "raw" / "drugbank_clean.csv"
         
         # Loaded dataframe (lazy loading)
         self.drug_df = None

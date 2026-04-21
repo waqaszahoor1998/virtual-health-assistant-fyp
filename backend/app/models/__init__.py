@@ -15,6 +15,7 @@ from app.models.appointment import Appointment
 from app.models.drug import Drug
 from app.models.disease import Disease
 from app.models.symptom import Symptom
+from app.models.consultation_request import ConsultationRequest
 
 __all__ = [
     'User',
@@ -25,6 +26,7 @@ __all__ = [
     'Appointment',
     'Drug',
     'Disease',
-    'Symptom'
+    'Symptom',
+    'ConsultationRequest',
 ]
 

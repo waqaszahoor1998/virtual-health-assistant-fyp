@@ -1,11 +1,6 @@
 /**
- * Root App component.
- * 
- * This component:
- * - Sets up the main application layout
- * - Defines routes for different pages
- * - Provides authentication context
- * - Includes global error handling
+ * Root App — routes and auth guards.
+ * Data flow: pages use services/api.js (JWT) → Flask /api/* (see docs/PROJECT_GUIDE.md).
  */
 
 import React from 'react'

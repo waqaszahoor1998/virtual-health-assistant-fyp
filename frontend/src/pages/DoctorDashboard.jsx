@@ -18,7 +18,7 @@ import React, { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Tab, Tabs, Button, Alert, Spinner } from 'react-bootstrap'
 import { toast } from 'react-toastify'
 import { useAuth } from '../context/AuthContext'
-import { patientAPI, diagnosisAPI, appointmentAPI } from '../services/api'
+import { patientAPI, diagnosisAPI, appointmentAPI, prescriptionAPI, drugAPI, consultationAPI } from '../services/api'
 import SymptomSelector from '../components/SymptomSelector'
 import DiseasePredictionCard from '../components/DiseasePredictionCard'
 
@@ -49,6 +49,22 @@ function DoctorDashboard() {
   // ==================== APPOINTMENTS TAB STATE ====================
   const [appointments, setAppointments] = useState([])
   const [loadingAppointments, setLoadingAppointments] = useState(false)
+  const [patientById, setPatientById] = useState({})
+
+  const [lastDiagnosisId, setLastDiagnosisId] = useState(null)
+  const [prescriptionPatientId, setPrescriptionPatientId] = useState(null)
+  const [drugSearchQuery, setDrugSearchQuery] = useState('')
+  const [drugSearchResults, setDrugSearchResults] = useState([])
+  const [selectedDrug, setSelectedDrug] = useState(null)
+  const [rxDosage, setRxDosage] = useState('')
+  const [rxFrequency, setRxFrequency] = useState('')
+  const [rxDuration, setRxDuration] = useState('')
+  const [rxInstructions, setRxInstructions] = useState('')
+  const [savingRx, setSavingRx] = useState(false)
+
+  const [consultations, setConsultations] = useState([])
+  const [loadingConsultations, setLoadingConsultations] = useState(false)
+  const [consultationResponses, setConsultationResponses] = useState({})
   
   // Common symptoms list (can be loaded from API later)
   const commonSymptoms = [
@@ -74,6 +90,10 @@ function DoctorDashboard() {
   useEffect(() => {
     if (activeTab === 'appointments') {
       loadAppointments()
+      loadPatientDirectory()
+    }
+    if (activeTab === 'consultations') {
+      loadConsultations()
     }
   }, [activeTab])
   
@@ -109,6 +129,113 @@ function DoctorDashboard() {
       setLoadingAppointments(false)
     }
   }
+
+  const loadPatientDirectory = async () => {
+    try {
+      const response = await patientAPI.getAll({ per_page: 500 })
+      const list = response.data.patients || []
+      const map = {}
+      list.forEach((p) => {
+        map[p.id] = p
+      })
+      setPatientById(map)
+    } catch (e) {
+      console.error('Error loading patient directory:', e)
+    }
+  }
+
+  const updateAppointmentStatus = async (appointmentId, status) => {
+    try {
+      await appointmentAPI.update(appointmentId, { status })
+      toast.success(`Appointment marked as ${status}`)
+      loadAppointments()
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to update appointment')
+    }
+  }
+
+  const searchDrugs = async () => {
+    const q = drugSearchQuery.trim()
+    if (!q) {
+      toast.warning('Enter a drug name to search')
+      return
+    }
+    try {
+      const res = await drugAPI.search(q)
+      setDrugSearchResults(res.data.drugs || [])
+      if ((res.data.drugs || []).length === 0) {
+        toast.info('No drugs found. You can still type a drug name manually.')
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Drug search failed')
+    }
+  }
+
+  const handleSavePrescription = async () => {
+    if (!lastDiagnosisId || !prescriptionPatientId) {
+      toast.warning('Save a diagnosis first to attach a prescription')
+      return
+    }
+    const drugName = (selectedDrug?.name || drugSearchQuery).trim()
+    const drugbankId = selectedDrug?.drugbank_id || 'MANUAL'
+    if (!drugName) {
+      toast.warning('Select a drug from search or enter a name')
+      return
+    }
+    setSavingRx(true)
+    try {
+      await prescriptionAPI.create({
+        diagnosis_id: lastDiagnosisId,
+        patient_id: prescriptionPatientId,
+        drugbank_id: drugbankId,
+        drug_name: drugName,
+        dosage: rxDosage || undefined,
+        frequency: rxFrequency || undefined,
+        duration: rxDuration || undefined,
+        instructions: rxInstructions || undefined,
+      })
+      toast.success('Prescription saved')
+      setSelectedDrug(null)
+      setDrugSearchResults([])
+      setDrugSearchQuery('')
+      setRxDosage('')
+      setRxFrequency('')
+      setRxDuration('')
+      setRxInstructions('')
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to save prescription')
+    } finally {
+      setSavingRx(false)
+    }
+  }
+
+  const loadConsultations = async () => {
+    setLoadingConsultations(true)
+    try {
+      const res = await consultationAPI.list()
+      setConsultations(res.data.consultations || [])
+    } catch (e) {
+      toast.error('Failed to load consultation requests')
+    } finally {
+      setLoadingConsultations(false)
+    }
+  }
+
+  const submitConsultationResponse = async (consultationId) => {
+    const text = (consultationResponses[consultationId] || '').trim()
+    if (!text) {
+      toast.warning('Enter a response')
+      return
+    }
+    try {
+      await consultationAPI.respond(consultationId, { doctor_response: text, status: 'answered' })
+      toast.success('Response sent')
+      setConsultationResponses((prev) => ({ ...prev, [consultationId]: '' }))
+      loadConsultations()
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Failed to send response')
+    }
+  }
   
   /**
    * Handle symptom selection change.
@@ -132,7 +259,7 @@ function DoctorDashboard() {
     setPredictions([])
     
     try {
-      const response = await diagnosisAPI.predict(selectedSymptoms, 'xgboost', 5)
+      const response = await diagnosisAPI.predict(selectedSymptoms, 'lightgbm', 5)
       
       if (response.data.success && response.data.prediction) {
         setPredictions(response.data.prediction.predictions || [])
@@ -191,6 +318,11 @@ function DoctorDashboard() {
       
       if (response.data) {
         toast.success('Diagnosis created successfully!')
+        const d = response.data.diagnosis
+        if (d?.id) {
+          setLastDiagnosisId(d.id)
+          setPrescriptionPatientId(selectedPatient.id)
+        }
         // Reset form
         setSelectedSymptoms([])
         setPredictions([])
@@ -385,6 +517,95 @@ function DoctorDashboard() {
                       )}
                     </Button>
                   )}
+
+                  {lastDiagnosisId && prescriptionPatientId && (
+                    <Card className="mt-4 border-secondary">
+                      <Card.Header>
+                        <Card.Title className="mb-0">Add prescription (after diagnosis)</Card.Title>
+                      </Card.Header>
+                      <Card.Body>
+                        <p className="text-muted small mb-3">
+                          Diagnosis ID: {lastDiagnosisId} — Patient ID: {prescriptionPatientId}
+                        </p>
+                        <div className="row g-2 mb-3">
+                          <div className="col-md-8">
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Search drug name (DrugBank)..."
+                              value={drugSearchQuery}
+                              onChange={(e) => setDrugSearchQuery(e.target.value)}
+                            />
+                          </div>
+                          <div className="col-md-4 d-grid">
+                            <Button variant="outline-primary" type="button" onClick={searchDrugs}>
+                              Search drugs
+                            </Button>
+                          </div>
+                        </div>
+                        {drugSearchResults.length > 0 && (
+                          <div className="mb-3" style={{ maxHeight: 180, overflowY: 'auto' }}>
+                            {drugSearchResults.map((d) => (
+                              <Button
+                                key={`${d.drugbank_id}-${d.name}`}
+                                variant={selectedDrug?.drugbank_id === d.drugbank_id ? 'success' : 'light'}
+                                className="w-100 mb-1 text-start"
+                                type="button"
+                                onClick={() => {
+                                  setSelectedDrug(d)
+                                  setDrugSearchQuery(d.name || '')
+                                }}
+                              >
+                                <strong>{d.name}</strong>{' '}
+                                <span className="text-muted small">{d.drugbank_id}</span>
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="row g-2 mb-2">
+                          <div className="col-md-6">
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Dosage (e.g. 500mg)"
+                              value={rxDosage}
+                              onChange={(e) => setRxDosage(e.target.value)}
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Frequency (e.g. Twice daily)"
+                              value={rxFrequency}
+                              onChange={(e) => setRxFrequency(e.target.value)}
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Duration (e.g. 7 days)"
+                              value={rxDuration}
+                              onChange={(e) => setRxDuration(e.target.value)}
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Instructions"
+                              value={rxInstructions}
+                              onChange={(e) => setRxInstructions(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <Button variant="primary" onClick={handleSavePrescription} disabled={savingRx}>
+                          {savingRx ? 'Saving…' : 'Save prescription'}
+                        </Button>
+                      </Card.Body>
+                    </Card>
+                  )}
                 </Card.Body>
               </Card>
             </Col>
@@ -498,7 +719,11 @@ function DoctorDashboard() {
                           {appointments.map((appointment) => (
                             <tr key={appointment.id}>
                               <td>{formatDate(appointment.appointment_date)}</td>
-                              <td>Patient #{appointment.patient_id}</td>
+                              <td>
+                                {patientById[appointment.patient_id]
+                                  ? `${patientById[appointment.patient_id].first_name} ${patientById[appointment.patient_id].last_name}`
+                                  : `Patient #${appointment.patient_id}`}
+                              </td>
                               <td>{appointment.reason || 'N/A'}</td>
                               <td>
                                 <span className={`badge bg-${
@@ -509,9 +734,24 @@ function DoctorDashboard() {
                                 </span>
                               </td>
                               <td>
-                                <Button variant="outline-primary" size="sm">
-                                  View
-                                </Button>
+                                <div className="d-flex gap-1 flex-wrap">
+                                  <Button
+                                    variant="success"
+                                    size="sm"
+                                    disabled={appointment.status !== 'scheduled'}
+                                    onClick={() => updateAppointmentStatus(appointment.id, 'completed')}
+                                  >
+                                    Approve / Complete
+                                  </Button>
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    disabled={appointment.status === 'cancelled'}
+                                    onClick={() => updateAppointmentStatus(appointment.id, 'cancelled')}
+                                  >
+                                    Reject
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -523,6 +763,55 @@ function DoctorDashboard() {
               </Card>
             </Col>
           </Row>
+        </Tab>
+
+        <Tab eventKey="consultations" title="Patient questions">
+          <Card>
+            <Card.Header>
+              <Card.Title className="mb-0">Consultation requests</Card.Title>
+            </Card.Header>
+            <Card.Body>
+              {loadingConsultations ? (
+                <div className="text-center py-4">
+                  <Spinner animation="border" />
+                </div>
+              ) : consultations.length === 0 ? (
+                <Alert variant="info" className="mb-0">No open requests.</Alert>
+              ) : (
+                consultations.map((c) => (
+                  <Card key={c.id} className="mb-3">
+                    <Card.Body>
+                      <div className="d-flex justify-content-between">
+                        <strong>{c.subject}</strong>
+                        <span className="badge bg-secondary">{c.status}</span>
+                      </div>
+                      <p className="mt-2 mb-1">{c.message}</p>
+                      {c.symptoms && (
+                        <p className="text-muted small mb-2">Symptoms: {c.symptoms}</p>
+                      )}
+                      {c.doctor_response && (
+                        <Alert variant="light" className="mb-2">
+                          <strong>Your reply:</strong> {c.doctor_response}
+                        </Alert>
+                      )}
+                      <textarea
+                        className="form-control mb-2"
+                        rows={2}
+                        placeholder="Write a response to the patient…"
+                        value={consultationResponses[c.id] || ''}
+                        onChange={(e) =>
+                          setConsultationResponses((prev) => ({ ...prev, [c.id]: e.target.value }))
+                        }
+                      />
+                      <Button size="sm" onClick={() => submitConsultationResponse(c.id)}>
+                        Send response
+                      </Button>
+                    </Card.Body>
+                  </Card>
+                ))
+              )}
+            </Card.Body>
+          </Card>
         </Tab>
       </Tabs>
     </Container>

@@ -18,7 +18,9 @@ class Config:
     # Application secret key for session management and token signing
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
-    # Database configuration
+    # Database: set DATABASE_URL in backend/.env (see .env.example).
+    # Local demos often use SQLite (e.g. sqlite:///demo.db). The PostgreSQL
+    # URL below is only a placeholder when DATABASE_URL is unset.
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'postgresql://username:password@localhost/virtual_health_assistant'
     SQLALCHEMY_TRACK_MODIFICATIONS = False  # Disable event system to save resources
@@ -42,7 +44,8 @@ class Config:
     
     # Data paths
     DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
-    DRUGBANK_CSV = os.path.join(DATA_DIR, 'processed', 'drugbank_clean.csv')
+    # Prefer the raw file path used by the service; can be overridden via env var.
+    DRUGBANK_CSV = os.environ.get('DRUGBANK_CSV') or os.path.join(DATA_DIR, 'raw', 'drugbank_clean.csv')
     
     # Pagination
     ITEMS_PER_PAGE = 20
