@@ -137,6 +137,16 @@ git lfs pull
 
 If you skip this, you may have small “pointer files” instead of the real `.csv/.xlsx/.pkl/.docx` content.
 
+### 6.1.2 Sanity check (recommended)
+
+From the repo root:
+
+```powershell
+.\scripts\sanity_check.ps1
+```
+
+This checks Git LFS, confirms a few key large files exist locally, and reminds you how to create `backend/venv/` if it’s missing.
+
 ### 6.2 Backend
 
 **Windows (PowerShell):**

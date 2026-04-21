@@ -24,6 +24,19 @@ git lfs pull
 
 If you skip this, you may only download **pointer files** instead of the real large files.
 
+## Sanity check (recommended)
+
+After cloning and pulling LFS files, you can run:
+
+```powershell
+.\scripts\sanity_check.ps1
+```
+
+It checks that:
+- `git lfs` is available
+- key large files are present (not just pointers)
+- backend `venv` exists (or tells you how to create it)
+
 ## Quick run (local, Windows PowerShell)
 
 **1. Backend** (from `backend/`):
