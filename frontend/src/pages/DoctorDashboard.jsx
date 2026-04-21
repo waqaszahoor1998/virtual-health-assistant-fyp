@@ -18,7 +18,7 @@ import React, { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Tab, Tabs, Button, Alert, Spinner } from 'react-bootstrap'
 import { toast } from 'react-toastify'
 import { useAuth } from '../context/AuthContext'
-import { patientAPI, diagnosisAPI, appointmentAPI, prescriptionAPI, drugAPI, consultationAPI } from '../services/api'
+import { patientAPI, diagnosisAPI, appointmentAPI, prescriptionAPI, drugAPI, consultationAPI, catalogAPI } from '../services/api'
 import SymptomSelector from '../components/SymptomSelector'
 import DiseasePredictionCard from '../components/DiseasePredictionCard'
 
@@ -66,14 +66,13 @@ function DoctorDashboard() {
   const [loadingConsultations, setLoadingConsultations] = useState(false)
   const [consultationResponses, setConsultationResponses] = useState({})
   
-  // Common symptoms list (can be loaded from API later)
-  const commonSymptoms = [
+  // Symptom catalog (loaded from backend /api/catalog/symptoms).
+  // Falls back to a small built-in list if the catalog hasn't been built yet.
+  const [commonSymptoms, setCommonSymptoms] = useState([
     'fever', 'headache', 'cough', 'nausea', 'fatigue', 'dizziness',
-    'chest pain', 'abdominal pain', 'back pain', 'joint pain',
-    'shortness of breath', 'rash', 'sore throat', 'muscle pain',
-    'diarrhea', 'vomiting', 'loss of appetite', 'weight loss',
-    'insomnia', 'anxiety', 'depression', 'memory loss'
-  ]
+    'chest pain', 'abdominal pain', 'shortness of breath', 'sore throat',
+  ])
+  const [loadingSymptoms, setLoadingSymptoms] = useState(false)
   
   /**
    * Load patients list on component mount and when tab changes.
@@ -96,6 +95,30 @@ function DoctorDashboard() {
       loadConsultations()
     }
   }, [activeTab])
+
+  // Load symptom catalog once (used in the diagnosis tab).
+  useEffect(() => {
+    loadSymptomsCatalog()
+  }, [])
+
+  const loadSymptomsCatalog = async () => {
+    setLoadingSymptoms(true)
+    try {
+      const res = await catalogAPI.listSymptoms({ per_page: 1000 })
+      const items = res.data.items || []
+      const names = items.map((s) => (typeof s === 'string' ? s : s.name)).filter(Boolean)
+      if (names.length > 0) {
+        setCommonSymptoms(names)
+      } else {
+        // Likely catalog not built yet; keep fallback list.
+        console.warn('Symptom catalog returned 0 items. Run: flask build-catalog')
+      }
+    } catch (e) {
+      console.warn('Failed to load symptom catalog. Using fallback list.', e)
+    } finally {
+      setLoadingSymptoms(false)
+    }
+  }
   
   /**
    * Load patients from API with search functionality.

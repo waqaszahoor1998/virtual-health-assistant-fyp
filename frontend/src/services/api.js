@@ -221,3 +221,9 @@ export const consultationAPI = {
   list: () => api.get('/consultations'),
   respond: (id, data) => api.put(`/consultations/${id}/respond`, data),
 }
+
+// Catalog endpoints (symptoms + diseases) for autocomplete/search
+export const catalogAPI = {
+  listSymptoms: (params) => api.get('/catalog/symptoms', { params }),
+  listDiseases: (params) => api.get('/catalog/diseases', { params }),
+}

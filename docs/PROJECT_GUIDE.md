@@ -28,7 +28,7 @@ rehan/
 │   │   ├── utils/
 │   │   │   ├── ml_service.py      # Loads .pkl models + vectorizer; predict_diseases()
 │   │   │   └── drugbank_service.py # Loads DRUGBANK_CSV; search
-│   │   └── cli/seed.py      # flask seed-demo (demo users + data)
+│   │   └── cli/seed.py      # flask seed-db (demo users + data)
 │   └── .env.example         # Copy to .env for local demo (SQLite, CORS, secrets)
 │
 ├── frontend/                # React (Vite)
@@ -145,10 +145,19 @@ API routes are under **`/api/...`** (blueprint prefix).
 **Seed demo users and records:**
 
 ```powershell
-flask seed-demo
+flask seed-db
 ```
 
 Default demo password is in `backend/app/cli/seed.py` (`demo123`).
+
+**Build symptom/disease catalogs (recommended):**
+
+This fills the database tables `symptoms` and `diseases` so the frontend can load
+a large symptom list (autocomplete/search) from the backend.
+
+```powershell
+flask build-catalog
+```
 
 ### 6.3 Frontend
 
@@ -222,7 +231,7 @@ Use this as the **honest checklist** of what the repo implements today (not mark
 | Dashboards (appointments, prescriptions, diagnosis flows) | Implemented (`PatientDashboard.jsx`, `DoctorDashboard.jsx`) |
 | Symptom → disease API | Implemented; primary model **LightGBM** in `ml_service.py` |
 | Drug search from CSV | Implemented (`drugbank_service.py`, `drugs.py`) |
-| Demo DB seed | `flask seed-demo` (`cli/seed.py`) |
+| Demo DB seed | `flask seed-db` (`cli/seed.py`) |
 | SQLite local demo | Supported via `DATABASE_URL` in `.env` |
 | Optional ML demo without `.pkl` | `DEMO_ML_FALLBACK=1` |
 | Extra trainers (NN, stacking, CatBoost, …) | Present under `ml_models/scripts/`; **not** auto-loaded by Flask unless you change `ml_service.py` |
@@ -244,7 +253,7 @@ Use this as the **honest checklist** of what the repo implements today (not mark
 
 | File | Role |
 |------|------|
-| `backend/app/__init__.py` | **App factory:** `db`, `jwt`, `migrate`, CORS, registers `api_bp` at `/api`, `db.create_all()` in development, registers `flask seed-demo`. |
+| `backend/app/__init__.py` | **App factory:** `db`, `jwt`, `migrate`, CORS, registers `api_bp` at `/api`, `db.create_all()` in development, registers `flask seed-db` and `flask build-catalog`. |
 | `backend/app/api/__init__.py` | Defines `api_bp` blueprint; imports route modules so routes attach to the blueprint. |
 
 **HTTP routes (all live under URL prefix `/api`)**
@@ -286,7 +295,8 @@ Use this as the **honest checklist** of what the repo implements today (not mark
 
 | File | Role |
 |------|------|
-| `backend/app/cli/seed.py` | `flask seed-demo` — creates demo doctor/patients/appointments/diagnoses/prescriptions. |
+| `backend/app/cli/seed.py` | `flask seed-db` — creates demo doctor/patients/appointments/diagnoses/prescriptions. |
+| `backend/app/cli/catalog.py` | `flask build-catalog` — populates `symptoms` and `diseases` tables from artifacts/data (idempotent). |
 
 **How routes tie to models:** Each `*.py` in `api/` imports `db` and the ORM classes it needs (`User`, `Patient`, …), checks JWT identity and role, then reads/writes rows. **Diagnosis** is special: it also calls `ml_service`, which only reads files under `ml_models/models/`.
 
@@ -310,6 +320,14 @@ Use this as the **honest checklist** of what the repo implements today (not mark
 | `frontend/src/components/layout/Navbar.jsx`, `Footer.jsx` | Chrome. |
 
 **Connection rule:** Pages call `api.get` / `api.post` (from `api.js`). Those hit `http://localhost:5000/api/...` in dev because `vite.config.js` **proxies** `/api` to the backend.
+
+### Catalog endpoints used by the UI
+
+- `GET /api/catalog/symptoms?q=<optional>&page=1&per_page=200` (JWT required)
+- `GET /api/catalog/diseases?q=<optional>&page=1&per_page=200` (JWT required)
+
+The doctor diagnosis UI loads symptoms from `/api/catalog/symptoms` on mount and
+falls back to a small built-in list if the catalog is empty.
 
 ---
 

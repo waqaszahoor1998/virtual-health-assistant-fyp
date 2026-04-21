@@ -13,5 +13,5 @@ api_bp = Blueprint('api', __name__)
 
 # Import all route modules to register them with the blueprint
 # Import here to avoid circular imports
-from app.api import auth, patients, doctors, diagnosis, drugs, prescriptions, appointments, consultations
+from app.api import auth, patients, doctors, diagnosis, drugs, prescriptions, appointments, consultations, catalog
 

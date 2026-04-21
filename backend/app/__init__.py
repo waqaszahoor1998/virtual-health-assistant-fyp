@@ -75,6 +75,8 @@ def create_app(config_name=None):
     # Register CLI commands
     from app.cli.seed import seed_db_command
     app.cli.add_command(seed_db_command)
+    from app.cli.catalog import build_catalog_command
+    app.cli.add_command(build_catalog_command)
     
     # Register error handlers
     register_error_handlers(app)
