@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: vha-postgres
+    environment:
+      POSTGRES_DB: virtual_health_assistant
+      POSTGRES_USER: vha
+      POSTGRES_PASSWORD: vha_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - vha_pgdata:/var/lib/postgresql/data
+
+volumes:
+  vha_pgdata:
+

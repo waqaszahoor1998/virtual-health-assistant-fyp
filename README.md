@@ -39,6 +39,12 @@ It checks that:
 
 ## Quick run (local, Windows PowerShell)
 
+Start PostgreSQL (repo root):
+
+```powershell
+docker compose up -d db
+```
+
 **1. Backend** (from `backend/`):
 
 ```powershell

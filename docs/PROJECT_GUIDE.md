@@ -29,7 +29,7 @@ rehan/
 │   │   │   ├── ml_service.py      # Loads .pkl models + vectorizer; predict_diseases()
 │   │   │   └── drugbank_service.py # Loads DRUGBANK_CSV; search
 │   │   └── cli/seed.py      # flask seed-db (demo users + data)
-│   └── .env.example         # Copy to .env for local demo (SQLite, CORS, secrets)
+│   └── .env.example         # Copy to .env (PostgreSQL URL, CORS, secrets)
 │
 ├── frontend/                # React (Vite)
 │   ├── vite.config.js       # Dev server port 3000; proxies /api → localhost:5000
@@ -63,7 +63,7 @@ rehan/
 |--------|------------|
 | Frontend | React 18, Vite, React Router, Bootstrap, Axios |
 | Backend | Flask, SQLAlchemy, Flask-JWT-Extended, Flask-Migrate, Flask-CORS |
-| Database | **Local demo:** SQLite (`DATABASE_URL` in `.env`). **Production-style:** PostgreSQL URL in env |
+| Database | **Recommended:** PostgreSQL (`DATABASE_URL` in `.env`). SQLite is optional for quick demos/tests. |
 | ML training | Python, scikit-learn, LightGBM (and optional scripts: XGBoost, NN, stacking) |
 | ML inference (API) | **Primary:** LightGBM inside `MultiOutputClassifier`. **Optional:** XGBoost / Random Forest if their `.pkl` files exist |
 
@@ -106,7 +106,7 @@ Copy `backend/.env.example` to `backend/.env` and adjust.
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL` | e.g. `sqlite:///demo.db` for local SQLite |
+| `DATABASE_URL` | e.g. `postgresql://user:pass@localhost:5432/dbname` |
 | `SECRET_KEY` / `JWT_SECRET_KEY` | Signing sessions/tokens; change for any real deployment |
 | `CORS_ORIGINS` | Must include your frontend origin (default example: `http://localhost:3000`) |
 | `DRUGBANK_CSV` | Optional override path to `drugbank_clean.csv` |
@@ -114,7 +114,7 @@ Copy `backend/.env.example` to `backend/.env` and adjust.
 | `FLASK_ENV` | `development` (default) or `production` |
 | `PORT` | Backend port (default `5000`) |
 
-`config.py` defines defaults; **development** still expects you to set `DATABASE_URL` for SQLite if you do not run PostgreSQL.
+`config.py` defines defaults; always set `DATABASE_URL` in `backend/.env` so the environment is explicit.
 
 ---
 
@@ -147,7 +147,15 @@ From the repo root:
 
 This checks Git LFS, confirms a few key large files exist locally, and reminds you how to create `backend/venv/` if it’s missing.
 
-### 6.2 Backend
+### 6.2 Backend (recommended: PostgreSQL)
+
+Start PostgreSQL (repo root):
+
+```powershell
+docker compose up -d db
+```
+
+If you don’t have Docker, install PostgreSQL locally and point `DATABASE_URL` to it.
 
 **Windows (PowerShell):**
 
@@ -157,7 +165,7 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
-# Train ML (see §7) or set DEMO_ML_FALLBACK=1 in .env for demo-only predictions
+# Train ML (see §7) or set DEMO_ML_FALLBACK=1 in .env for fallback predictions
 python run.py
 ```
 
@@ -267,7 +275,7 @@ Use this as the **honest checklist** of what the repo implements today (not mark
 | Symptom → disease API | Implemented; primary model **LightGBM** in `ml_service.py` |
 | Drug search from CSV | Implemented (`drugbank_service.py`, `drugs.py`) |
 | Demo DB seed | `flask seed-db` (`cli/seed.py`) |
-| SQLite local demo | Supported via `DATABASE_URL` in `.env` |
+| SQLite local demo | Optional (set `DATABASE_URL=sqlite:///demo.db`) |
 | Optional ML demo without `.pkl` | `DEMO_ML_FALLBACK=1` |
 | Extra trainers (NN, stacking, CatBoost, …) | Present under `ml_models/scripts/`; **not** auto-loaded by Flask unless you change `ml_service.py` |
 
@@ -412,7 +420,7 @@ Many old root-level `.md` files **contradicted** each other and the code (differ
 | 503 “ML models not available” | No `lightgbm_model.pkl` | Run training (§7) or `DEMO_ML_FALLBACK=1` |
 | Drug search empty / 500 | Missing CSV | Place `data/raw/drugbank_clean.csv` or set `DRUGBANK_CSV` |
 | Wrong API port | Vite proxy targets 5000 | Run backend on 5000 or change `vite.config.js` |
-| PostgreSQL connection errors | Default `config.py` example URL | Use SQLite in `.env` for local work |
+| PostgreSQL connection errors | DB not running / wrong URL | Ensure `docker compose up -d db` and `DATABASE_URL` match |
 
 ---
 
